@@ -1,0 +1,90 @@
+:root {
+  --zemin: #f4f5f7; --yuzey: #ffffff; --cizgi: #e2e5ea; --yazi: #1b1f24; --soluk: #5f6b7a;
+  --vurgu: #1f6f50; --vurgu-acik: #e5f2ec; --hata: #b42318; --hata-zemin: #fdecea; --uyari-zemin: #fff6e0;
+  color-scheme: light;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --zemin: #121417; --yuzey: #1b1e23; --cizgi: #2c3138; --yazi: #e7e9ec; --soluk: #9aa4b1;
+    --vurgu: #4cc38a; --vurgu-acik: #18352a; --hata: #ff7a6e; --hata-zemin: #3a1c1a; --uyari-zemin: #3a3016;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--zemin); color: var(--yazi); font-size: 14px; }
+h1 { font-size: 22px; margin: 0; }
+h2 { font-size: 16px; margin: 20px 0 8px; display: flex; gap: 8px; align-items: baseline; }
+h2 small, .liste-satir small { color: var(--soluk); font-weight: normal; }
+.sag { margin-left: auto; }
+button { font: inherit; background: var(--vurgu); color: #fff; border: 0; border-radius: 6px; padding: 8px 14px; cursor: pointer; }
+button:disabled { opacity: .5; cursor: default; }
+button.ikincil { background: transparent; color: var(--vurgu); border: 1px solid var(--cizgi); }
+input, select { font: inherit; color: var(--yazi); background: var(--yuzey); border: 1px solid var(--cizgi); border-radius: 6px; padding: 7px 9px; min-width: 0; }
+code { background: var(--vurgu-acik); padding: 1px 5px; border-radius: 4px; user-select: all; }
+
+.kabuk { display: flex; min-height: 100vh; }
+nav { width: 200px; flex: none; background: var(--yuzey); border-right: 1px solid var(--cizgi); padding: 16px 10px; display: flex; flex-direction: column; gap: 4px; }
+nav .marka { font-weight: 700; font-size: 18px; padding: 4px 10px 14px; color: var(--vurgu); }
+nav > button { background: transparent; color: var(--yazi); text-align: left; }
+nav > button.aktif { background: var(--vurgu-acik); color: var(--vurgu); font-weight: 600; }
+nav .kullanici { margin-top: auto; display: flex; flex-direction: column; gap: 6px; padding: 10px; color: var(--soluk); }
+main { flex: 1; padding: 20px 24px; min-width: 0; overflow-x: auto; }
+
+.sayfa-baslik { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: flex-end; justify-content: space-between; margin-bottom: 12px; }
+.filtre { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-bottom: 10px; }
+.alan { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--soluk); }
+.kutu { display: flex; gap: 6px; align-items: center; padding-bottom: 8px; }
+.not { color: var(--soluk); font-size: 12.5px; margin: 0 0 10px; }
+.bilgi { color: var(--soluk); padding: 12px 0; }
+.uyari { background: var(--uyari-zemin); border-radius: 6px; padding: 9px 12px; margin: 8px 0; }
+.uyari.hata { background: var(--hata-zemin); color: var(--hata); }
+.arac { display: flex; justify-content: flex-end; margin: 8px 0; }
+
+.kartlar { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin: 8px 0 14px; }
+.kart { background: var(--yuzey); border: 1px solid var(--cizgi); border-radius: 8px; padding: 12px 14px; }
+.kart-baslik { color: var(--soluk); font-size: 12px; }
+.kart-deger { font-size: 20px; font-weight: 650; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.blok { background: var(--yuzey); border: 1px solid var(--cizgi); border-radius: 8px; padding: 4px 14px 14px; margin-bottom: 14px; overflow-x: auto; }
+
+table { width: 100%; border-collapse: collapse; background: var(--yuzey); font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--cizgi); white-space: nowrap; }
+td:first-child { white-space: normal; }
+th { font-size: 12px; color: var(--soluk); font-weight: 600; position: sticky; top: 0; background: var(--yuzey); }
+.s { text-align: right; }
+.b { font-weight: 600; }
+.eksi { color: var(--hata); }
+tr.devir td { color: var(--soluk); font-style: italic; }
+tr.tiklanir { cursor: pointer; }
+tr.tiklanir:hover, tr.secili { background: var(--vurgu-acik); }
+tr.alt-satir > td { background: var(--zemin); padding: 8px 16px; }
+table.ic { font-size: 13px; }
+td.bos { color: var(--soluk); text-align: center; padding: 20px; }
+input.adet { width: 70px; text-align: right; }
+button.sil { background: transparent; color: var(--hata); font-size: 18px; padding: 0 8px; }
+
+.iki-sutun { display: grid; grid-template-columns: minmax(280px, 380px) 1fr; gap: 16px; align-items: start; }
+.iki-sutun > * { min-width: 0; overflow-x: auto; }
+.liste { display: flex; flex-direction: column; background: var(--yuzey); border: 1px solid var(--cizgi); border-radius: 8px; max-height: 75vh; overflow-y: auto; }
+.liste-satir { display: flex; justify-content: space-between; gap: 10px; text-align: left; background: transparent; color: var(--yazi); border-bottom: 1px solid var(--cizgi); border-radius: 0; }
+.liste-satir > span:first-child { display: flex; flex-direction: column; }
+.liste-satir.secili { background: var(--vurgu-acik); }
+.onizleme { width: 100%; max-width: 520px; background: #fff; border: 1px solid var(--cizgi); border-radius: 4px; display: block; margin: 8px 0; }
+
+.giris { display: grid; place-items: center; min-height: 100vh; padding: 16px; }
+.giris form { background: var(--yuzey); border: 1px solid var(--cizgi); border-radius: 10px; padding: 28px; width: 100%; max-width: 340px; display: flex; flex-direction: column; gap: 12px; }
+.giris h1 { color: var(--vurgu); }
+
+@media (max-width: 800px) {
+  .kabuk { flex-direction: column; }
+  nav { width: auto; flex-direction: row; flex-wrap: wrap; border-right: 0; border-bottom: 1px solid var(--cizgi); padding: 8px; }
+  nav .marka { padding: 8px; }
+  nav .kullanici { margin: 0 0 0 auto; flex-direction: row; align-items: center; padding: 0; }
+  main { padding: 14px 16px; }
+  .iki-sutun { grid-template-columns: 1fr; }
+}
+@media print {
+  nav, .filtre, .arac, .liste, .sayfa-baslik { display: none !important; }
+  .iki-sutun { display: block; }
+  body, table, th { background: #fff; color: #000; }
+}

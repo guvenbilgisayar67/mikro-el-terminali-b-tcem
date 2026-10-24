@@ -1,0 +1,8 @@
+bin/
+obj/
+node_modules/
+android/build/
+android/*.apk
+*.keystore
+appsettings.Local.json
+src/Butcem.Api/wwwroot/

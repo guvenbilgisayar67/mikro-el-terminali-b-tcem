@@ -1,0 +1,139 @@
+# Bütçem: kurulum kılavuzu
+
+Bu paket üç parçadan oluşur:
+
+| Parça | Nereye kurulur | Ne yapar |
+|---|---|---|
+| **ButcemApi** (API + web paneli) | Mikro'nun çalıştığı sunucu (ya da VPN'den Mikro'ya erişen bir Windows makine) | Satış raporu, günün cirosu, cari ekstre, çek raporu, etiket kuyruğu, kullanıcılar |
+| **ButcemYazdirma** (yazdırma programı) | Her mağazada, etiket ve A4 yazıcıların USB ile bağlı olduğu bilgisayar | Sunucudaki etiket işlerini alır ve USB yazıcıya basar |
+| **ButcemTerminal.apk** | iData T1 Pro el terminalleri | Barkod okut, fiyat ve stok gör, raf / manav / A4 etiket bas |
+
+Mikro'ya **yalnızca okuma** yetkisiyle bağlanılır. API, Mikro ve Orion veritabanlarına hiçbir şey yazmaz; kendi
+verisini (kullanıcılar, yazıcılar, etiket kuyruğu, işlem kaydı) ayrı bir `ButcemApp` veritabanında tutar.
+
+---
+
+## 1. Sunucu: veritabanı
+
+SQL Server Management Studio ile Mikro'nun bulunduğu SQL Server'a `sa` (ya da sysadmin) olarak bağlanın.
+
+1. `sql/01_butcem_app.sql` dosyasını çalıştırın. `ButcemApp` veritabanını ve tabloları oluşturur, ilk yönetici
+   kullanıcıyı ekler: kullanıcı adı **admin**, şifre **Butcem2026!** (ilk girişte değiştirin).
+2. `sql/02_sql_kullanicilari.sql` dosyasını açın, iki şifreyi değiştirin, çalıştırın. Bu betik:
+   - `butcem_api` girişini oluşturur: Mikro'da yalnızca okuma (yazma açıkça yasaklanır), `ButcemApp`'te okuma/yazma.
+   - `butcem_okuma` girişini oluşturur: Orion'da yalnızca okuma.
+   - Mikro veritabanının adı `MikroDB_V16_BUTCEM2024` değilse betikteki `USE` satırını düzeltin.
+
+## 2. Sunucu: API ve web paneli
+
+1. `ButcemApi` klasörünü sunucuya kopyalayın, örneğin `C:\Butcem\Api`.
+2. `appsettings.json` dosyasını düzenleyin:
+   - `ConnectionStrings:Mikro` ve `ConnectionStrings:App`: sunucu adı (`BUTCEMSVR\SQLEXPRESS` yerine kendi
+     sunucunuz), `butcem_api` şifresi.
+   - `Orion:Kaynaklar`: Orion veritabanının bağlantısı, `butcem_okuma` şifresi. Şube Orion veritabanları
+     (ORIONSOLAK, ORION@HATIP, ORIONAKTAS) merkezden daha güncelse, her biri için listeye bir satır daha
+     eklenebilir; aynı Z raporu iki kaynakta varsa bir kez sayılır.
+   - `Jwt:Anahtar`: en az 32 karakterlik rastgele bir metin yazın (örneğin PowerShell'de
+     `[Convert]::ToBase64String((1..48 | % {Get-Random -Max 256}))`). Bu anahtar giriş jetonlarını imzalar,
+     kimseyle paylaşmayın.
+   - `Etiket`: raf etiketi ölçüsü (varsayılan 100 x 39 mm). Etiket yazıcıda yan dönmüş çıkıyorsa
+     `Dondur90: true` yapın. `EskiFiyatGoster` ve `YerliUretimLogosu` Orion tasarımındaki gizli alanlardır;
+     isterseniz `true` yapın (yerli üretim logosu Mikro'da menşei TÜRKİYE olan ürünlerde çıkar).
+3. Önce elle deneyin: `C:\Butcem\Api\Butcem.Api.exe` çalıştırın, tarayıcıda `http://localhost:5080/api/saglik`
+   açın. Üç satırın da `"ok"` olması gerekir.
+4. Windows hizmeti olarak kurun (yönetici komut isteminde):
+
+   ```
+   sc create ButcemApi binPath= "C:\Butcem\Api\Butcem.Api.exe" start= auto
+   sc start ButcemApi
+   netsh advfirewall firewall add rule name="ButcemApi" dir=in action=allow protocol=TCP localport=5080
+   ```
+
+5. Panel: `http://SUNUCU-IP:5080` (mağazalardan VPN üzerinden aynı adres). `admin` ile girin,
+   **Yönetim** sayfasından kendi şifrenizi ve kullanıcıları oluşturun:
+   - **Yönetici**: her şey.
+   - **Merkez**: raporlar ve etiket.
+   - **Mağaza / el terminali**: yalnızca etiket ve stok sorgusu, yalnızca kendi mağazasının yazıcıları.
+
+## 3. Mağaza bilgisayarı: yazdırma programı
+
+Her mağazada bir kez yapılır.
+
+1. Yazıcıların Windows sürücüleri kurulu ve deneme sayfası basıyor olmalı (Xprinter XP-470B, Argox OS-214 plus,
+   Epson L3250, Brother). Etiket yazıcılarında sürücüdeki kâğıt ölçüsünü etiket ölçüsüne ayarlayın.
+2. Panelde **Yönetim → Mağaza bilgisayarları**: bilgisayara bir ad verin (ör. `SOLAK-KASA1`), mağazayı seçin,
+   **Ekle**. Ekranda çıkan **anahtarı kopyalayın**, bir daha gösterilmez.
+3. `ButcemYazdirma` klasörünü bilgisayara kopyalayın, örneğin `C:\Butcem\Yazdirma`. `appsettings.json` içinde:
+   - `Sunucu`: `http://SUNUCU-IP:5080`
+   - `Ad`: 2. adımda verdiğiniz ad (birebir aynı)
+   - `Anahtar`: kopyaladığınız anahtar
+4. Komut isteminde `C:\Butcem\Yazdirma\ButcemYazdirma.exe yazicilar` çalıştırın: bilgisayardaki yazıcı adlarını
+   listeler.
+5. Panelde **Yönetim → Yazıcılar**: bilgisayarı seçin, görünen bir ad yazın (ör. "Raf yazıcısı"), 4. adımdaki
+   Windows yazıcı adını **birebir** yapıştırın, modeli seçin:
+   - Xprinter XP-470B → **TSPL**
+   - Argox OS-214 plus → **EPL**
+   - Epson / Brother → **A4** (etiketler A4 sayfaya 2 x 7 dizilir)
+6. Hizmet olarak kurun (yönetici komut isteminde):
+
+   ```
+   sc create ButcemYazdirma binPath= "C:\Butcem\Yazdirma\ButcemYazdirma.exe" start= auto
+   sc start ButcemYazdirma
+   ```
+
+   Panelde **Yönetim → Mağaza bilgisayarları** listesinde "Son görülme" birkaç saniye içinde dolmalıdır.
+   A4 yazıcı hizmet olarak basmazsa (bazı sürücüler hizmetten basmayı sevmez), hizmeti silip
+   (`sc delete ButcemYazdirma`) programı Görev Zamanlayıcı ile "kullanıcı oturum açtığında" başlatın.
+7. Panelde **Etiket** sayfasından bir ürün okutup basın. İş "Basıldı" olmalı; hata varsa sebebi yazar.
+
+Etiketler yazıcıya resim olarak gönderilir; bu yüzden Türkçe karakterler ve ₺ işareti yazıcı fontundan bağımsız
+olarak doğru çıkar.
+
+## 4. El terminali (iData T1 Pro)
+
+1. `ButcemTerminal.apk` dosyasını terminale kopyalayın (USB ya da paylaşım), açın. "Bilinmeyen kaynaklardan
+   yüklemeye izin ver" sorulursa izin verin.
+2. Açılışta **sunucu adresi** (`http://SUNUCU-IP:5080`), kullanıcı adı ve şifre girilir. Her terminal için
+   panelden **Mağaza / el terminali** rolünde ayrı kullanıcı açın; kullanıcı mağazasına bağlıdır.
+3. Okuyucu ayarı (iData **ScanWedge / Tarayıcı Ayarları**), ikisinden biri:
+   - **Çıkış modu: Yayın (Broadcast)**, eylem `android.intent.action.SCANRESULT`, ek alan `value`
+     (iData'nın varsayılanı), ya da
+   - **Klavye (Keyboard) modu** ve "sonuna Enter ekle" açık.
+4. Kullanım: barkod okutulur → ürün adı, satış fiyatı, fiyat değişim tarihi, mağazaların stokları görünür.
+   **Listeye ekle** (ya da **Adet…**) ile etiket listesi oluşur; şablon (raf / manav) ve mağaza yazıcısı seçilip
+   **Bas** denir. Sağ üst menüde **Bugün fiyatı değişenleri ekle** vardır.
+
+APK'yı güncellemek için aynı imza anahtarı (`butcem.keystore`, şifresi `butcem123`) gerekir; bu dosyayı saklayın.
+Kaybolursa yeni sürüm kurmadan önce eskisini kaldırmak gerekir.
+
+## 5. Güvenlik
+
+- API'yi internete doğrudan açmayın; mağazalar ve terminaller VPN üzerinden bağlansın. Dış ağa açmak gerekirse
+  önüne HTTPS sağlayan bir ters vekil (IIS / Caddy / nginx) ve güvenlik duvarında IP kısıtı koyun.
+- Orion'un `TBL_SUBE_MAIN` tablosunda `sa` şifresi düz metin duruyor. `sa` şifresini değiştirip Orion'a ayrı,
+  yetkisi kısıtlı bir giriş tanımlamanızı öneririm.
+- Her giriş ve etiket baskısı `ButcemApp.dbo.IslemLog` tablosuna yazılır.
+
+## 6. Bilinen eksikler ve sıradaki işler
+
+- **Manav etiketi** şimdilik yer tutucu tasarımdır; tasarım dosyası gelince Orion'daki gibi yapılacak.
+  **A4 etiket** düzeni de tasarıma göre güncellenecek.
+- Merkez Orion'da şube Z raporları gecikmeli, Aktaş kasaları (11, 12) çoğunlukla eksik. Günün cirosu ekranı bu
+  yüzden mağaza bazında "son güncelleme" saatini gösterir. Şube Orion veritabanlarına VPN'den erişilebiliyorsa
+  kaynak olarak eklenmesi bunu çözer.
+- APK gerçek iData cihazında henüz denenmedi; ilk kurulumda okuyucu modunu kontrol edin.
+- Yazma gerektiren özellikler (alış / satış faturası, çek giriş / çıkış bordrosu, depolar arası sevk) sonraki
+  adımdır. Bunlar önce kopya veritabanında denenecek, canlıya sizin onayınızla geçecek.
+
+## 7. Geliştirici notları
+
+```
+# API (Linux/Windows):  dotnet build ; dotnet run --project src/Butcem.Api
+# Windows paketi:       dotnet publish src/Butcem.Api -c Release -r win-x64 --self-contained -o yayin/ButcemApi
+#                       dotnet publish src/Butcem.Yazdirma -c Release -o yayin/ButcemYazdirma
+# Panel:                cd web && npm install && npm run build      (çıktı src/Butcem.Api/wwwroot)
+# APK:                  android/derle.sh   (javac + dx + aapt + apksigner; Gradle gerekmez)
+```
+
+Kod düzeni: `src/Butcem.Api/Features` her ekranın uç noktaları, `Infrastructure` bağlantı / yetki / Mikro kodları,
+`Etiket` etiket çizimi ve yazıcı komutları (TSPL, EPL, A4), `sql` kurulum betikleri.

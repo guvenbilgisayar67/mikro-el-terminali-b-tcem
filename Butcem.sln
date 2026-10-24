@@ -1,0 +1,34 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{4EE3F486-B24D-46FF-849A-CECA66E48887}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Butcem.Api", "src\Butcem.Api\Butcem.Api.csproj", "{A2793E68-72EC-442C-8E30-0442A379D0B1}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Butcem.Yazdirma", "src\Butcem.Yazdirma\Butcem.Yazdirma.csproj", "{623FBD7F-F15D-4ED9-9F4B-A1424B4C09D6}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A2793E68-72EC-442C-8E30-0442A379D0B1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A2793E68-72EC-442C-8E30-0442A379D0B1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A2793E68-72EC-442C-8E30-0442A379D0B1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A2793E68-72EC-442C-8E30-0442A379D0B1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{623FBD7F-F15D-4ED9-9F4B-A1424B4C09D6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{623FBD7F-F15D-4ED9-9F4B-A1424B4C09D6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{623FBD7F-F15D-4ED9-9F4B-A1424B4C09D6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{623FBD7F-F15D-4ED9-9F4B-A1424B4C09D6}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{A2793E68-72EC-442C-8E30-0442A379D0B1} = {4EE3F486-B24D-46FF-849A-CECA66E48887}
+		{623FBD7F-F15D-4ED9-9F4B-A1424B4C09D6} = {4EE3F486-B24D-46FF-849A-CECA66E48887}
+	EndGlobalSection
+EndGlobal

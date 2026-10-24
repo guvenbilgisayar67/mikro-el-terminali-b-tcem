@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.butcem.terminal"
+    android:versionCode="1"
+    android:versionName="0.1.0">
+
+    <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="23" />
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <application
+        android:label="Bütçem Terminal"
+        android:icon="@drawable/ikon"
+        android:allowBackup="false"
+        android:theme="@android:style/Theme.Material.Light.DarkActionBar">
+        <activity
+            android:name=".GirisActivity"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name=".AnaActivity"
+            android:windowSoftInputMode="stateHidden|adjustResize" />
+    </application>
+</manifest>
