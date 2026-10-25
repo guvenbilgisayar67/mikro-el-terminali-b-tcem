@@ -187,6 +187,7 @@ public class AnaActivity extends Activity {
     @Override public boolean onCreateOptionsMenu(Menu m) {
         m.add(0, 1, 0, "Bugün fiyatı değişenleri ekle");
         m.add(0, 2, 0, "Yazıcıları yenile");
+        m.add(0, 4, 0, "Depolar arası sevk");
         m.add(0, 3, 0, "Çıkış");
         return true;
     }
@@ -194,6 +195,7 @@ public class AnaActivity extends Activity {
     @Override public boolean onOptionsItemSelected(MenuItem i) {
         if (i.getItemId() == 1) degisenleriEkle();
         else if (i.getItemId() == 2) yazicilariYukle();
+        else if (i.getItemId() == 4) startActivity(new Intent(this, SevkActivity.class));
         else if (i.getItemId() == 3) {
             api.cikis();
             startActivity(new Intent(this, GirisActivity.class));

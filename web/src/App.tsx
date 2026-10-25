@@ -2,18 +2,24 @@ import { useEffect, useState } from "react";
 import { Oturum, oturumDustugunde, oturumOku, oturumYaz } from "./api";
 import Cari from "./sayfalar/Cari";
 import Cek from "./sayfalar/Cek";
+import CekIslem from "./sayfalar/CekIslem";
 import Ciro from "./sayfalar/Ciro";
 import Etiket from "./sayfalar/Etiket";
+import Fatura from "./sayfalar/Fatura";
 import Giris from "./sayfalar/Giris";
 import Satis from "./sayfalar/Satis";
+import Sevk from "./sayfalar/Sevk";
 import Yonetim from "./sayfalar/Yonetim";
 
-type Sayfa = "ciro" | "satis" | "cari" | "cek" | "etiket" | "yonetim";
+type Sayfa = "ciro" | "satis" | "cari" | "cek" | "cekislem" | "fatura" | "sevk" | "etiket" | "yonetim";
 const SAYFALAR: { id: Sayfa; ad: string; roller: string[] }[] = [
   { id: "ciro", ad: "Günün cirosu", roller: ["admin", "merkez"] },
   { id: "satis", ad: "Satış raporu", roller: ["admin", "merkez"] },
   { id: "cari", ad: "Cari ekstre", roller: ["admin", "merkez"] },
   { id: "cek", ad: "Çek raporu", roller: ["admin", "merkez"] },
+  { id: "cekislem", ad: "Çek giriş / çıkış", roller: ["admin", "merkez"] },
+  { id: "fatura", ad: "Fatura ve irsaliye", roller: ["admin", "merkez"] },
+  { id: "sevk", ad: "Depolar arası sevk", roller: ["admin", "merkez", "magaza"] },
   { id: "etiket", ad: "Etiket", roller: ["admin", "merkez", "magaza"] },
   { id: "yonetim", ad: "Yönetim", roller: ["admin"] },
 ];
@@ -46,6 +52,9 @@ export default function App() {
         {aktif.id === "satis" && <Satis depoKilitli={oturum.rol === "magaza"} />}
         {aktif.id === "cari" && <Cari />}
         {aktif.id === "cek" && <Cek />}
+        {aktif.id === "cekislem" && <CekIslem />}
+        {aktif.id === "fatura" && <Fatura depoNo={null} />}
+        {aktif.id === "sevk" && <Sevk depoNo={oturum.rol === "magaza" ? oturum.depoNo : null} />}
         {aktif.id === "etiket" && <Etiket />}
         {aktif.id === "yonetim" && <Yonetim />}
       </main>

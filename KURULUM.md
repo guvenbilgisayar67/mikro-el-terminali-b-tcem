@@ -52,8 +52,50 @@ SQL Server Management Studio ile Mikro'nun bulunduğu SQL Server'a `sa` (ya da s
 5. Panel: `http://SUNUCU-IP:5080` (mağazalardan VPN üzerinden aynı adres). `admin` ile girin,
    **Yönetim** sayfasından kendi şifrenizi ve kullanıcıları oluşturun:
    - **Yönetici**: her şey.
-   - **Merkez**: raporlar ve etiket.
-   - **Mağaza / el terminali**: yalnızca etiket ve stok sorgusu, yalnızca kendi mağazasının yazıcıları.
+   - **Merkez**: raporlar, etiket, çek giriş/çıkış, fatura ve irsaliye, sevk.
+   - **Mağaza / el terminali**: etiket, stok sorgusu ve yalnızca kendi deposundan depolar arası sevk.
+
+### 2a. Mikro'ya evrak yazma (sevk, çek, irsaliye, fatura)
+
+Yazma varsayılan olarak **kapalıdır**; kapalıyken ekranlar açılır ama Kaydet "yazma kapalı" der.
+Açmak için:
+
+1. `sql\03_yazma_kullanicisi.sql` dosyasındaki şifreyi değiştirip sysadmin ile çalıştırın. `butcem_yazma`
+   girişi yalnızca evrak tablolarına **ekleme** yapabilir; güncelleme yalnızca çek kartının yerini/pozisyonunu
+   ve irsaliyenin fatura bağlantısını değiştirebilir; silme yetkisi yoktur.
+2. `appsettings.json`:
+   - `ConnectionStrings:MikroYazma`: `butcem_yazma` ve şifresi.
+   - `Yazma:MikroKullaniciNo`: kayıtlarda "oluşturan" olarak görünecek Mikro kullanıcı numarası. Mikro'da
+     "BUTCEM" adlı bir kullanıcı açıp onun numarasını yazmanızı öneririm; böylece hangi evrakın panelden
+     geldiği Mikro'da da görünür.
+   - `Yazma:DepoSerileri`: depoya göre evrak serisi (sevk ve alış irsaliyesi). Hazır değerler sizin
+     verinizden alındı: 1 TEPE, 2 SOLAK, 3 A.DEPO, 4 HATIP, 5 boş.
+   - `Yazma:CekKasasi`: müşteri çeklerinin durduğu kasa (`ÇEK KASASI`).
+   - `Yazma:SatisEBelge`: `true` ise satış faturası Mikro'daki gibi e-belge kaydıyla açılır ve Mikro'nun
+     e-fatura / e-arşiv ekranından gönderilir. `false` ise e-belge kaydı açılmaz.
+   - `Yazma:KdvOranlari` (isteğe bağlı): KDV göstergesine göre oran. Boşsa 1:%0, 2:%1, 3:%8, 4:%18, 6:%10,
+     7:%20 kullanılır (verinizden doğrulandı).
+   - Son olarak `Yazma:Acik: true`.
+3. Önce **kopya veritabanında** deneyin: `ConnectionStrings:Mikro` ve `MikroYazma` kopyayı göstersin, birkaç
+   evrak girip Mikro'da açın. Sonra canlıya çevirin.
+
+Ne yazılır (Mikro'nun kendi evraklarıyla alan alan karşılaştırıldı):
+
+| Ekran | Mikro'daki karşılığı | Tablolar |
+|---|---|---|
+| Depolar arası sevk | Depolar arası sevk fişi (evrak tipi 2) | STOK_HAREKETLERI |
+| Çek girişi | Müşteri çeki giriş bordrosu (4), ÇEK KASASI'nda portföy | CARI_HESAP_HAREKETLERI, ODEME_EMIRLERI |
+| Çek çıkışı | Çek çıkış bordrosu (67): müşteri çeki ciro, ya da kendi çekimiz | CARI_HESAP_HAREKETLERI, ODEME_EMIRLERI |
+| Alış irsaliyesi | Alış irsaliyesi (13) | STOK_HAREKETLERI |
+| Bekleyen irsaliyeler | İrsaliyeden alış faturası (0) | CARI_HESAP_HAREKETLERI (+ irsaliyeye bağlantı) |
+| Satış faturası | Satış faturası (4 / 63) | STOK_HAREKETLERI, CARI_HESAP_HAREKETLERI, E_FATURA_ISLEMLERI |
+
+Kontroller: deponun Mikro'daki kilit tarihine ve ileri tarihe evrak girilmez; portföyde olmayan çek ciro
+edilmez; faturası girilmiş irsaliye tekrar faturalaşmaz; aynı anda Mikro'dan aynı numara alınırsa numara
+yeniden alınır. Her kayıt `IslemLog` tablosuna kim/ne zaman/ne ile yazılır.
+
+Sevk maliyeti ürünün son alış fiyatıdır (iskontolar düşülmüş). Mikro bazı sevklerde farklı bir maliyet
+önerebiliyor; bu yalnız maliyet raporunu etkiler, stok miktarını ve cariyi etkilemez.
 
 ## 3. Mağaza bilgisayarı: yazdırma programı
 
@@ -101,7 +143,9 @@ olarak doğru çıkar.
    - **Klavye (Keyboard) modu** ve "sonuna Enter ekle" açık.
 4. Kullanım: barkod okutulur → ürün adı, satış fiyatı, fiyat değişim tarihi, mağazaların stokları görünür.
    **Listeye ekle** (ya da **Adet…**) ile etiket listesi oluşur; şablon (raf / manav) ve mağaza yazıcısı seçilip
-   **Bas** denir. Sağ üst menüde **Bugün fiyatı değişenleri ekle** vardır.
+   **Bas** denir. Sağ üst menüde **Bugün fiyatı değişenleri ekle** ve **Depolar arası sevk** vardır.
+5. Sevk: menüden **Depolar arası sevk** açılır, çıkış deposu terminalin mağazasıdır. Gidecek depo seçilir,
+   ürünler okutulur (her okutma 1 ekler, dokunarak miktar değişir), **Sevki kaydet** denir.
 
 APK'yı güncellemek için aynı imza anahtarı (`butcem.keystore`, şifresi `butcem123`) gerekir; bu dosyayı saklayın.
 Kaybolursa yeni sürüm kurmadan önce eskisini kaldırmak gerekir.
@@ -122,8 +166,10 @@ Kaybolursa yeni sürüm kurmadan önce eskisini kaldırmak gerekir.
   yüzden mağaza bazında "son güncelleme" saatini gösterir. Şube Orion veritabanlarına VPN'den erişilebiliyorsa
   kaynak olarak eklenmesi bunu çözer.
 - APK gerçek iData cihazında henüz denenmedi; ilk kurulumda okuyucu modunu kontrol edin.
-- Yazma gerektiren özellikler (alış / satış faturası, çek giriş / çıkış bordrosu, depolar arası sevk) sonraki
-  adımdır. Bunlar önce kopya veritabanında denenecek, canlıya sizin onayınızla geçecek.
+- Yazma özellikleri kopya veritabanında denendi; canlıda `Yazma:Acik` sizin onayınızla açılacak.
+- Satış irsaliyesi, iade faturaları, çeki bankaya tahsile verme ve senetler henüz yok.
+- Kopyadaki portföyde 2021-2024 vadeli, hâlâ ÇEK KASASI'nda görünen müşteri çekleri var; Mikro'da
+  kapatılmamış olabilirler.
 
 ## 7. Geliştirici notları
 

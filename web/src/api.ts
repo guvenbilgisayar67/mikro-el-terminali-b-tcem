@@ -104,3 +104,10 @@ export function csvIndir(dosya: string, basliklar: string[], satirlar: (string |
   a.click();
   URL.revokeObjectURL(url);
 }
+
+/** Kullanıcının yazdığı tutarı sayıya çevirir: "325.000,50", "325000,5" ve "325000.5" hepsi kabul. */
+export function sayiOku(s: string): number {
+  const t = s.trim().replace(/\s/g, "");
+  if (!t) return NaN;
+  return t.includes(",") ? Number(t.replace(/\./g, "").replace(",", ".")) : Number(t);
+}

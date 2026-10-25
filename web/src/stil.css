@@ -88,3 +88,17 @@ button.sil { background: transparent; color: var(--hata); font-size: 18px; paddi
   .iki-sutun { display: block; }
   body, table, th { background: #fff; color: #000; }
 }
+
+/* Evrak giriş ekranları */
+.sekmeler { display: flex; gap: 4px; border-bottom: 1px solid var(--cizgi); margin-bottom: 14px; flex-wrap: wrap; }
+.sekmeler button { background: transparent; color: var(--soluk); border-radius: 6px 6px 0 0; border-bottom: 2px solid transparent; }
+.sekmeler button.aktif { color: var(--vurgu); border-bottom-color: var(--vurgu); font-weight: 600; }
+.cari-sec { position: relative; }
+.liste.acilir { position: absolute; z-index: 5; min-width: 320px; max-height: 300px; box-shadow: 0 6px 20px rgba(0,0,0,.15); }
+.secilen { display: inline-flex; align-items: center; gap: 6px; padding: 6px 0 6px 10px; border: 1px solid var(--cizgi); border-radius: 6px; background: var(--yuzey); color: var(--yazi); font-size: 14px; }
+.uyari.tamam { background: var(--vurgu-acik); color: var(--vurgu); }
+input.fiyat { width: 110px; text-align: right; }
+input.kisa { width: 120px; }
+.toplamlar { display: flex; gap: 18px; justify-content: flex-end; padding: 10px 8px; flex-wrap: wrap; font-variant-numeric: tabular-nums; }
+.toplamlar b { font-size: 16px; }
+.kaydet { display: flex; gap: 10px; justify-content: flex-end; align-items: center; margin-top: 8px; }

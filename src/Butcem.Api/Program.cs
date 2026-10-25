@@ -24,6 +24,7 @@ builder.Services.AddSingleton<TokenServisi>();
 builder.Services.AddSingleton<Db>();
 builder.Services.AddSingleton<IslemLogu>();
 builder.Services.AddSingleton<EtiketCizici>();
+builder.Services.AddSingleton<MikroYazici>();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(o => o.TokenValidationParameters = TokenServisi.Dogrulama(jwt));
@@ -41,6 +42,16 @@ builder.Services.AddSwaggerGen();
 var app = builder.Build();
 
 app.UseExceptionHandler();
+// İş kuralı hataları (kilitli depo, bulunamayan ürün, yazma kapalı...) kullanıcıya 400 ve mesajla döner.
+app.Use(async (ctx, next) =>
+{
+    try { await next(ctx); }
+    catch (IslemHatasi ex) when (!ctx.Response.HasStarted)
+    {
+        ctx.Response.StatusCode = StatusCodes.Status400BadRequest;
+        await ctx.Response.WriteAsJsonAsync(new { hata = ex.Message });
+    }
+});
 app.UseSwagger();
 app.UseSwaggerUI();
 app.UseDefaultFiles();
@@ -62,6 +73,10 @@ app.MapGet("/api/saglik", (Db db) =>
     return Results.Ok(durum);
 }).AllowAnonymous();
 
+// Panel, evrak ekranlarında "yazma kapalı" uyarısını göstermek için.
+app.MapGet("/api/yazma/durum", (MikroYazici y) => Results.Ok(new { acik = y.Acik }))
+   .RequireAuthorization(Roller.Herkes).WithTags("Yönetim");
+
 Kullanicilar.Map(app);
 SatisRaporu.Map(app);
 GunlukCiro.Map(app);
@@ -69,6 +84,9 @@ CariEkstre.Map(app);
 CekRaporu.Map(app);
 Stok.Map(app);
 EtiketBaskisi.Map(app);
+DepoSevk.Map(app);
+CekIslemleri.Map(app);
+Faturalar.Map(app);
 
 app.MapFallbackToFile("index.html");
 
