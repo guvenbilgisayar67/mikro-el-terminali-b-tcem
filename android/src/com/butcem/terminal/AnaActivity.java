@@ -61,6 +61,8 @@ public class AnaActivity extends Activity {
         Kalem(String barkod, String ad) { this.barkod = barkod; this.ad = ad; }
     }
 
+    private LinearLayout etiketBolumu;
+
     private final BroadcastReceiver tarayici = new BroadcastReceiver() {
         @Override public void onReceive(Context c, Intent i) {
             String v = i.getStringExtra("value");
@@ -119,6 +121,7 @@ public class AnaActivity extends Activity {
         stoklar = Ui.yazi(this, "", 14, false);
         l.addView(stoklar, Ui.genis(this, 6));
 
+        etiketBolumu = Ui.dikey(this);
         LinearLayout ekleSatiri = Ui.yatay(this);
         Button ekle1 = Ui.dugme(this, "Listeye ekle", true);
         ekle1.setOnClickListener(new View.OnClickListener() {
@@ -130,25 +133,25 @@ public class AnaActivity extends Activity {
         });
         ekleSatiri.addView(ekle1, Ui.agirlik(this, 2, 0));
         ekleSatiri.addView(ekleN, Ui.agirlik(this, 1, 8));
-        l.addView(ekleSatiri, Ui.genis(this, 10));
+        etiketBolumu.addView(ekleSatiri, Ui.genis(this, 10));
 
         View cizgi = new View(this);
         cizgi.setBackgroundColor(Color.rgb(226, 229, 234));
         LinearLayout.LayoutParams cp = Ui.genis(this, 14);
         cp.height = Ui.dp(this, 1);
-        l.addView(cizgi, cp);
+        etiketBolumu.addView(cizgi, cp);
 
-        l.addView(Ui.yazi(this, "Etiket listesi", 15, true), Ui.genis(this, 10));
+        etiketBolumu.addView(Ui.yazi(this, "Etiket listesi", 15, true), Ui.genis(this, 10));
         liste = Ui.yazi(this, "", 14, false);
-        l.addView(liste, Ui.genis(this, 4));
+        etiketBolumu.addView(liste, Ui.genis(this, 4));
 
         sablonSecim = new Spinner(this);
         sablonSecim.setAdapter(new ArrayAdapter<String>(this, android.R.layout.simple_spinner_dropdown_item,
                 new String[]{"Raf etiketi", "Manav etiketi"}));
-        l.addView(sablonSecim, Ui.genis(this, 8));
+        etiketBolumu.addView(sablonSecim, Ui.genis(this, 8));
 
         yaziciSecim = new Spinner(this);
-        l.addView(yaziciSecim, Ui.genis(this, 4));
+        etiketBolumu.addView(yaziciSecim, Ui.genis(this, 4));
 
         LinearLayout basSatiri = Ui.yatay(this);
         basDugmesi = Ui.dugme(this, "Bas", true);
@@ -161,14 +164,32 @@ public class AnaActivity extends Activity {
         });
         basSatiri.addView(basDugmesi, Ui.agirlik(this, 2, 0));
         basSatiri.addView(temizle, Ui.agirlik(this, 1, 8));
-        l.addView(basSatiri, Ui.genis(this, 8));
+        etiketBolumu.addView(basSatiri, Ui.genis(this, 8));
+
+        l.addView(etiketBolumu);
 
         ScrollView s = new ScrollView(this);
         s.addView(l);
         setContentView(s);
 
         listeyiGoster();
-        yazicilariYukle();
+        yetkileriUygula();
+        // Yetkiler panelden değişmiş olabilir; güncelini al.
+        api.get("/api/ben", new Api.Sonuc() {
+            @Override public void tamam(String govde) {
+                try { api.oturumKaydet(new JSONObject(govde)); } catch (Exception e) { return; }
+                yetkileriUygula();
+            }
+            @Override public void hata(int durum, String m) { if (durum == 401) oturumBitti(); }
+        });
+    }
+
+    /** Etiket yetkisi yoksa terminal yalnız fiyat/stok sorgular; sevk menüsü sevk yetkisine bağlı. */
+    private void yetkileriUygula() {
+        boolean etiket = api.yetkili("etiket");
+        etiketBolumu.setVisibility(etiket ? View.VISIBLE : View.GONE);
+        if (etiket && yaziciSecim.getAdapter() == null) yazicilariYukle();
+        invalidateOptionsMenu();
     }
 
     @Override protected void onResume() {
@@ -185,9 +206,11 @@ public class AnaActivity extends Activity {
     }
 
     @Override public boolean onCreateOptionsMenu(Menu m) {
-        m.add(0, 1, 0, "Bugün fiyatı değişenleri ekle");
-        m.add(0, 2, 0, "Yazıcıları yenile");
-        m.add(0, 4, 0, "Depolar arası sevk");
+        if (api.yetkili("etiket")) {
+            m.add(0, 1, 0, "Bugün fiyatı değişenleri ekle");
+            m.add(0, 2, 0, "Yazıcıları yenile");
+        }
+        if (api.yetkili("sevk")) m.add(0, 4, 0, "Depolar arası sevk");
         m.add(0, 3, 0, "Çıkış");
         return true;
     }

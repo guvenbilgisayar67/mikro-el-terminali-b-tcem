@@ -102,7 +102,7 @@ public static class SatisRaporu
                 satirlar.Sum(s => s.Toplam), satirlar.Sum(s => s.Kdv), satirlar,
                 "Kasa satışları Mikro'ya ertesi gün aktarılır; bugünün tutarı için /api/ciro kullanın."));
         })
-        .RequireAuthorization(Roller.RaporOkuyabilir)
+        .RequireYetki(Yetkiler.SatisRaporu)
         .WithTags("Raporlar");
     }
 }

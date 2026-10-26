@@ -26,7 +26,7 @@ public static class CekRaporu
 
     public static void Map(WebApplication app)
     {
-        var g = app.MapGroup("/api/cek").RequireAuthorization(Roller.RaporOkuyabilir).WithTags("Çek");
+        var g = app.MapGroup("/api/cek").RequireYetki(Yetkiler.CekRaporu).WithTags("Çek");
 
         g.MapGet("/", (string? tipler, string? durum, DateOnly? vadeBas, DateOnly? vadeBit, string? cari, string? ara, Db db) =>
         {

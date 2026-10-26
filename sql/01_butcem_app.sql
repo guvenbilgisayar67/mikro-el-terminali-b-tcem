@@ -27,6 +27,11 @@ CREATE TABLE dbo.Kullanicilar (
     SonGiris      datetime2 NULL
 );
 GO
+/* v0.3: ekran yetkileri, virgülle ayrılmış (ciro,satis_raporu,cari_ekstre,cek_raporu,cek_giris,cek_cikis,
+   alis_fatura,satis_fatura,sevk,etiket). NULL: eski varsayılan (merkez: hepsi, mağaza: sevk + etiket). Admin her şeye yetkili. */
+IF COL_LENGTH(N'dbo.Kullanicilar', N'Yetkiler') IS NULL
+    ALTER TABLE dbo.Kullanicilar ADD Yetkiler nvarchar(400) NULL;
+GO
 
 /* Mağaza bilgisayarına kurulan yazdırma ajanları. Her ajan kendi anahtarıyla bağlanır. */
 IF OBJECT_ID(N'dbo.YazdirmaAjanlari') IS NULL

@@ -39,7 +39,7 @@ public static class CekIslemleri
 
     public static void Map(WebApplication app)
     {
-        var g = app.MapGroup("/api/cek").RequireAuthorization(Roller.RaporOkuyabilir).WithTags("Çek");
+        var g = app.MapGroup("/api/cek").RequireYetki(Yetkiler.CekGiris, Yetkiler.CekCikis).WithTags("Çek");
 
         // Çıkış bordrosunda seçilecek, portföydeki (çek kasasındaki) müşteri çekleri.
         g.MapGet("/portfoy", (Db db, IConfiguration config) =>
@@ -52,14 +52,14 @@ public static class CekIslemleri
                 WHERE sck_tip = 0 AND sck_sonpoz = 0 AND sck_nerede_cari_cins = 4 AND sck_nerede_cari_kodu = @kasa
                 ORDER BY sck_vade
                 """, new { kasa = CekKasasi(config) }));
-        });
+        }).RequireYetki(Yetkiler.CekCikis);
 
         g.MapGet("/bankalar", (Db db) =>
         {
             using var conn = db.Mikro();
             return Results.Ok(conn.Query<Banka>(
                 "SELECT ban_kod AS Kod, ban_ismi AS Ad, NULLIF(ban_sube, '') AS Sube FROM BANKALAR WITH (NOLOCK) ORDER BY ban_kod"));
-        });
+        }).RequireYetki(Yetkiler.CekCikis);
 
         g.MapPost("/giris", (GirisIstek istek, ClaimsPrincipal user, MikroYazici yazici, IConfiguration config, IslemLogu log) =>
         {
@@ -69,7 +69,7 @@ public static class CekIslemleri
             var sonuc = Giris(yazici, CekKasasi(config), istek);
             log.Yaz(user.Id(), "cek_giris", new { istek, sonuc });
             return Results.Ok(sonuc);
-        });
+        }).RequireYetki(Yetkiler.CekGiris);
 
         g.MapPost("/cikis", (CikisIstek istek, ClaimsPrincipal user, MikroYazici yazici, IConfiguration config, IslemLogu log) =>
         {
@@ -82,7 +82,7 @@ public static class CekIslemleri
             var sonuc = Cikis(yazici, CekKasasi(config), istek with { MusteriCekleri = mc, FirmaCekleri = fc });
             log.Yaz(user.Id(), "cek_cikis", new { istek, sonuc });
             return Results.Ok(sonuc);
-        });
+        }).RequireYetki(Yetkiler.CekCikis);
     }
 
     private static string CekKasasi(IConfiguration config) => config["Yazma:CekKasasi"] ?? CekKasasiVarsayilan;

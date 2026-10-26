@@ -37,7 +37,7 @@ public static class CariEkstre
 
     public static void Map(WebApplication app)
     {
-        var g = app.MapGroup("/api/cari").RequireAuthorization(Roller.RaporOkuyabilir).WithTags("Cari");
+        var g = app.MapGroup("/api/cari").RequireYetki(Yetkiler.CariArayabilir).WithTags("Cari");
 
         // Arama: kod ya da ünvan içinde geçen; bakiyesiyle birlikte.
         g.MapGet("/", (string? ara, int? ilk, Db db) =>
@@ -101,6 +101,6 @@ public static class CariEkstre
 
             return Results.Ok(new Ekstre(cari, b, e, devir, hareketler.Sum(x => x.Borc),
                 hareketler.Sum(x => x.Alacak), bakiye, hareketler));
-        });
+        }).RequireYetki(Yetkiler.CariEkstre);
     }
 }

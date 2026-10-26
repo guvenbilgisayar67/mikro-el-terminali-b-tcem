@@ -45,18 +45,19 @@ public static class Faturalar
 
     public static void Map(WebApplication app)
     {
-        var g = app.MapGroup("/api/fatura").RequireAuthorization(Roller.RaporOkuyabilir).WithTags("Fatura");
+        var g = app.MapGroup("/api/fatura").RequireYetki(Yetkiler.AlisFatura, Yetkiler.SatisFatura).WithTags("Fatura");
 
         g.MapPost("/alis-irsaliyesi", (IrsaliyeIstek istek, ClaimsPrincipal user, MikroYazici yazici, IConfiguration config, IslemLogu log) =>
         {
+            user.DepoYetkisi(istek.DepoNo);
             SatirKontrol(istek.Satirlar, istek.Tarih);
             var sonuc = AlisIrsaliyesi(yazici, config, istek);
             log.Yaz(user.Id(), "alis_irsaliyesi", new { istek, sonuc });
             return Results.Ok(sonuc);
-        });
+        }).RequireYetki(Yetkiler.AlisFatura);
 
         // Faturası henüz girilmemiş alış irsaliyeleri.
-        g.MapGet("/bekleyen-irsaliyeler", (string? cari, Db db) =>
+        g.MapGet("/bekleyen-irsaliyeler", (string? cari, ClaimsPrincipal user, Db db) =>
         {
             using var conn = db.Mikro();
             return Results.Ok(conn.Query<BekleyenIrsaliye>("""
@@ -69,25 +70,36 @@ public static class Faturalar
                   AND h.sth_fat_uid = '00000000-0000-0000-0000-000000000000'
                   AND h.sth_tarih >= DATEADD(month, -6, GETDATE())
                   AND (@cari IS NULL OR h.sth_cari_kodu = @cari)
+                  AND (@depo IS NULL OR h.sth_giris_depo_no = @depo)
                 GROUP BY h.sth_evrakno_seri, h.sth_evrakno_sira, h.sth_cari_kodu
                 ORDER BY MIN(h.sth_tarih) DESC
-                """, new { cari = string.IsNullOrWhiteSpace(cari) ? null : cari.Trim() }));
-        });
+                """, new { cari = string.IsNullOrWhiteSpace(cari) ? null : cari.Trim(), depo = user.MagazaKullanicisi() ? user.Depo() : null }));
+        }).RequireYetki(Yetkiler.AlisFatura);
 
-        g.MapPost("/alis/irsaliyeden", (FaturalastirIstek istek, ClaimsPrincipal user, MikroYazici yazici, IConfiguration config, IslemLogu log) =>
+        g.MapPost("/alis/irsaliyeden", (FaturalastirIstek istek, ClaimsPrincipal user, Db db, MikroYazici yazici, IConfiguration config, IslemLogu log) =>
         {
+            if (user.MagazaKullanicisi())
+            {
+                using var conn = db.Mikro();
+                var depo = conn.ExecuteScalar<int?>("""
+                    SELECT TOP 1 sth_giris_depo_no FROM STOK_HAREKETLERI WITH (NOLOCK)
+                    WHERE sth_evraktip = 13 AND sth_evrakno_seri = @seri AND sth_evrakno_sira = @Sira
+                    """, new { seri = istek.Seri ?? "", istek.Sira });
+                if (depo is not null) user.DepoYetkisi(depo.Value);
+            }
             var sonuc = Faturalastir(yazici, config, istek);
             log.Yaz(user.Id(), "alis_faturasi", new { istek, sonuc });
             return Results.Ok(sonuc);
-        });
+        }).RequireYetki(Yetkiler.AlisFatura);
 
         g.MapPost("/satis", (SatisIstek istek, ClaimsPrincipal user, MikroYazici yazici, IConfiguration config, IslemLogu log) =>
         {
+            user.DepoYetkisi(istek.DepoNo);
             SatirKontrol(istek.Satirlar, istek.Tarih);
             var sonuc = Satis(yazici, config, istek);
             log.Yaz(user.Id(), "satis_faturasi", new { istek, sonuc });
             return Results.Ok(sonuc);
-        });
+        }).RequireYetki(Yetkiler.SatisFatura);
     }
 
     private static void SatirKontrol(List<SatirIstek>? satirlar, DateTime? tarih)

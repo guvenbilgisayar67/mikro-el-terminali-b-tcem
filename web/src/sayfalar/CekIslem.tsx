@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { api, bugun, para, sayiOku as sayi, tarih } from "../api";
+import { api, bugun, Oturum, para, sayiOku as sayi, tarih, yetkili } from "../api";
 import { Alan, CariOzet, CariSec, Durum, Mesaj, MesajKutusu, useVeri, YazmaDurumu } from "../ortak";
 
 type GirisCeki = { vade: string; tutar: string; cekNo: string; banka: string; sube: string; borclu: string };
@@ -160,15 +160,16 @@ function Cikis() {
   );
 }
 
-export default function CekIslem() {
-  const [sekme, setSekme] = useState<"giris" | "cikis">("giris");
+export default function CekIslem({ oturum }: { oturum: Oturum }) {
+  const giris = yetkili(oturum, "cek_giris"), cikis = yetkili(oturum, "cek_cikis");
+  const [sekme, setSekme] = useState<"giris" | "cikis">(giris ? "giris" : "cikis");
   return (
     <section>
       <header className="sayfa-baslik"><h1>Çek giriş / çıkış</h1></header>
       <YazmaDurumu />
       <div className="sekmeler">
-        <button className={sekme === "giris" ? "aktif" : ""} onClick={() => setSekme("giris")}>Çek girişi (müşteriden)</button>
-        <button className={sekme === "cikis" ? "aktif" : ""} onClick={() => setSekme("cikis")}>Çek çıkışı (tedarikçiye)</button>
+        {giris && <button className={sekme === "giris" ? "aktif" : ""} onClick={() => setSekme("giris")}>Çek girişi (müşteriden)</button>}
+        {cikis && <button className={sekme === "cikis" ? "aktif" : ""} onClick={() => setSekme("cikis")}>Çek çıkışı (tedarikçiye)</button>}
       </div>
       {sekme === "giris" ? <Giris /> : <Cikis />}
     </section>

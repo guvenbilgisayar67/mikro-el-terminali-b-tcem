@@ -5,6 +5,7 @@ import android.content.SharedPreferences;
 import android.os.Handler;
 import android.os.Looper;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.ByteArrayOutputStream;
@@ -42,10 +43,21 @@ public final class Api {
     }
 
     public void oturumKaydet(JSONObject o) {
-        ayar.edit().putString("token", o.optString("token"))
-                .putString("adSoyad", o.optString("adSoyad"))
+        SharedPreferences.Editor e = ayar.edit();
+        if (o.has("token")) e.putString("token", o.optString("token"));
+        StringBuilder y = new StringBuilder(",");
+        JSONArray a = o.optJSONArray("yetkiler");
+        if (a != null) for (int i = 0; i < a.length(); i++) y.append(a.optString(i)).append(',');
+        e.putString("adSoyad", o.optString("adSoyad"))
+                .putString("rol", o.optString("rol"))
+                .putString("yetkiler", y.toString())
                 .putInt("depoNo", o.isNull("depoNo") ? 0 : o.optInt("depoNo"))
                 .apply();
+    }
+
+    /** Yönetici her şeye yetkilidir; diğerleri panelin Yönetim ekranında işaretlenen yetkilere. */
+    public boolean yetkili(String yetki) {
+        return "admin".equals(ayar.getString("rol", "")) || ayar.getString("yetkiler", "").contains("," + yetki + ",");
     }
 
     public void yaziciKaydet(int id) { ayar.edit().putInt("yazici", id).apply(); }

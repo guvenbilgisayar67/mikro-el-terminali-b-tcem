@@ -27,7 +27,7 @@ public static class EtiketBaskisi
 
     public static void Map(WebApplication app)
     {
-        var g = app.MapGroup("/api/etiket").RequireAuthorization(Roller.Herkes).WithTags("Etiket");
+        var g = app.MapGroup("/api/etiket").RequireYetki(Yetkiler.Etiket).WithTags("Etiket");
 
         g.MapGet("/onizleme", (string barkod, string? sablon, Db db, EtiketCizici cizici, IConfiguration cfg) =>
         {

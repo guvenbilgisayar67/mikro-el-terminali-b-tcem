@@ -1,11 +1,14 @@
-export type Oturum = { token: string; adSoyad: string; rol: "admin" | "merkez" | "magaza"; depoNo: number | null };
+export type Oturum = { token: string; adSoyad: string; rol: "admin" | "merkez" | "magaza"; depoNo: number | null; yetkiler: string[] };
+
+export const yetkili = (o: Oturum | null, ...y: string[]) => !!o && (o.rol === "admin" || y.some((x) => o.yetkiler.includes(x)));
 
 const ANAHTAR = "butcem.oturum";
 
 export function oturumOku(): Oturum | null {
   try {
     const s = localStorage.getItem(ANAHTAR);
-    return s ? (JSON.parse(s) as Oturum) : null;
+    const o = s ? (JSON.parse(s) as Oturum) : null;
+    return o && Array.isArray(o.yetkiler) ? o : null;   // eski sürümün oturumu: yeniden giriş
   } catch {
     return null;
   }

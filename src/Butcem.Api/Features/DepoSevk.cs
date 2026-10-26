@@ -24,7 +24,7 @@ public static class DepoSevk
 
     public static void Map(WebApplication app)
     {
-        var g = app.MapGroup("/api/sevk").RequireAuthorization(Roller.Herkes).WithTags("Depolar arası sevk");
+        var g = app.MapGroup("/api/sevk").RequireYetki(Yetkiler.Sevk).WithTags("Depolar arası sevk");
 
         // Okutulan ürün ve önerilen maliyet fiyatı (son alış).
         g.MapGet("/urun", (string k, DateTime? tarih, Db db) =>

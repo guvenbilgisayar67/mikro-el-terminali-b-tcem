@@ -76,7 +76,7 @@ public static class GunlukCiro
 
             return Results.Ok(new Sonuc(gun, magazalar.Sum(m => m.ZToplam), magazalar, hatalar));
         })
-        .RequireAuthorization(Roller.RaporOkuyabilir)
+        .RequireYetki(Yetkiler.Ciro)
         .WithTags("Raporlar");
     }
 }

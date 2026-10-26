@@ -25,12 +25,21 @@ builder.Services.AddSingleton<Db>();
 builder.Services.AddSingleton<IslemLogu>();
 builder.Services.AddSingleton<EtiketCizici>();
 builder.Services.AddSingleton<MikroYazici>();
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<KullaniciYukleyici>();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(o => o.TokenValidationParameters = TokenServisi.Dogrulama(jwt));
+    .AddJwtBearer(o =>
+    {
+        o.TokenValidationParameters = TokenServisi.Dogrulama(jwt);
+        o.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = ctx => ctx.HttpContext.RequestServices.GetRequiredService<KullaniciYukleyici>().Dogrula(ctx),
+        };
+    });
+// Ekran yetkileri uç noktalarda RequireYetki(...) ile verilir (Yetkiler sınıfı).
 builder.Services.AddAuthorizationBuilder()
     .AddPolicy(Roller.Admin, p => p.RequireRole(Roller.Admin))
-    .AddPolicy(Roller.RaporOkuyabilir, p => p.RequireRole(Roller.Admin, Roller.Merkez))
     .AddPolicy(Roller.Herkes, p => p.RequireAuthenticatedUser());
 
 builder.Services.ConfigureHttpJsonOptions(o =>

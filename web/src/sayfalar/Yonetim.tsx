@@ -2,19 +2,24 @@ import { useState } from "react";
 import { api, saat } from "../api";
 import { Alan, Durum, useVeri } from "../ortak";
 
-type Kullanici = { id: number; kullaniciAdi: string; adSoyad: string; rol: string; depoNo: number | null; aktif: boolean; sonGiris: string | null };
+type Kullanici = { id: number; kullaniciAdi: string; adSoyad: string; rol: string; depoNo: number | null; aktif: boolean; sonGiris: string | null; yetkiler: string[] };
+type Yetki = { kod: string; ad: string };
 type Ajan = { id: number; ad: string; depoNo: number; aktif: boolean; sonGorulme: string | null };
 type Yazici = { id: number; ad: string; tur: string; dil: string; depoNo: number; ajanAdi: string };
 type Depo = { no: number; ad: string };
 
-const ROLLER: Record<string, string> = { admin: "Yönetici", merkez: "Merkez (raporlar)", magaza: "Mağaza / el terminali" };
-const BOS = { id: 0, kullaniciAdi: "", adSoyad: "", rol: "magaza", depoNo: 1 as number | null, aktif: true, sifre: "" };
+const ROLLER: Record<string, string> = { admin: "Yönetici (her şey)", merkez: "Merkez personeli (tüm depolar)", magaza: "Mağaza personeli (tek depo)" };
+const BOS = { id: 0, kullaniciAdi: "", adSoyad: "", rol: "merkez", depoNo: 1 as number | null, aktif: true, sifre: "", yetkiler: [] as string[] };
 
 export default function Yonetim() {
   const kullanicilar = useVeri<Kullanici[]>("/api/kullanicilar");
   const ajanlar = useVeri<Ajan[]>("/api/yonetim/ajanlar");
   const yazicilar = useVeri<Yazici[]>("/api/etiket/yazicilar");
   const depolar = useVeri<Depo[]>("/api/depolar");
+  const yetkiler = useVeri<Yetki[]>("/api/kullanicilar/yetkiler");
+  const yetkiAdi = (kod: string) => yetkiler.veri?.find((y) => y.kod === kod)?.ad ?? kod;
+  const yetkiDegis = (kod: string, var_: boolean) =>
+    setK({ ...k, yetkiler: var_ ? [...k.yetkiler, kod] : k.yetkiler.filter((x) => x !== kod) });
   const [k, setK] = useState(BOS);
   const [ajan, setAjan] = useState({ ad: "", depoNo: 1 });
   const [yeniAnahtar, setYeniAnahtar] = useState<{ ad: string; anahtar: string } | null>(null);
@@ -40,18 +45,32 @@ export default function Yonetim() {
 
       <div className="blok">
         <h2>Kullanıcılar</h2>
-        <p className="not">Bu kullanıcılar Mikro kullanıcısı değildir; panel ve el terminali girişi içindir. Mağaza kullanıcısı yalnızca kendi mağazasını görür.</p>
+        <p className="not">Bu kullanıcılar Mikro kullanıcısı değildir; panel ve el terminali girişi içindir. Yönetici her şeyi yapar. Diğer kullanıcılar yalnız işaretlenen ekranları görür; mağaza personeli ayrıca yalnız kendi deposuyla çalışır. Değişiklik kullanıcıya en geç 30 saniyede yansır, pasife alınan kullanıcının oturumu hemen kapanır.</p>
         <form className="filtre" onSubmit={(e) => {
           e.preventDefault();
-          const govde = { ...k, depoNo: k.rol === "magaza" ? k.depoNo : null, sifre: k.sifre || null };
+          const govde = { ...k, depoNo: k.rol === "magaza" ? k.depoNo : null, sifre: k.sifre || null,
+                          yetkiler: k.rol === "magaza" ? k.yetkiler.filter((y) => y !== "ciro") : k.yetkiler };
           yap(() => (k.id ? api.put(`/api/kullanicilar/${k.id}`, govde) : api.post("/api/kullanicilar", govde)), () => { setK(BOS); kullanicilar.yenile(); });
         }}>
           <Alan etiket="Kullanıcı adı"><input required value={k.kullaniciAdi} onChange={(e) => setK({ ...k, kullaniciAdi: e.target.value })} /></Alan>
           <Alan etiket="Ad soyad"><input required value={k.adSoyad} onChange={(e) => setK({ ...k, adSoyad: e.target.value })} /></Alan>
-          <Alan etiket="Rol">
+          <Alan etiket="Kullanıcı tipi">
             <select value={k.rol} onChange={(e) => setK({ ...k, rol: e.target.value })}>{Object.entries(ROLLER).map(([r, a]) => <option key={r} value={r}>{a}</option>)}</select>
           </Alan>
           {k.rol === "magaza" && <Alan etiket="Mağaza">{depoSecim(k.depoNo, (n) => setK({ ...k, depoNo: n }))}</Alan>}
+          {k.rol !== "admin" && (
+            <fieldset className="yetkiler">
+              <legend>Yetkiler</legend>
+              {yetkiler.veri?.map((y) => {
+                const yasak = k.rol === "magaza" && y.kod === "ciro";
+                return (
+                  <label key={y.kod} className="kutu" title={yasak ? "Günün cirosu tüm mağazaları gösterir" : undefined}>
+                    <input type="checkbox" disabled={yasak} checked={!yasak && k.yetkiler.includes(y.kod)} onChange={(e) => yetkiDegis(y.kod, e.target.checked)} /> {y.ad}
+                  </label>
+                );
+              })}
+            </fieldset>
+          )}
           <Alan etiket={k.id ? "Yeni şifre (boş: değişmez)" : "Şifre (en az 8)"}><input type="password" value={k.sifre} minLength={k.id ? 0 : 8} onChange={(e) => setK({ ...k, sifre: e.target.value })} /></Alan>
           <label className="kutu"><input type="checkbox" checked={k.aktif} onChange={(e) => setK({ ...k, aktif: e.target.checked })} /> Aktif</label>
           <button type="submit">{k.id ? "Kaydet" : "Ekle"}</button>
@@ -59,11 +78,12 @@ export default function Yonetim() {
         </form>
         <Durum hata={kullanicilar.hata} yukleniyor={kullanicilar.yukleniyor} />
         <table>
-          <thead><tr><th>Kullanıcı</th><th>Ad soyad</th><th>Rol</th><th>Mağaza</th><th>Durum</th><th>Son giriş</th><th></th></tr></thead>
+          <thead><tr><th>Kullanıcı</th><th>Ad soyad</th><th>Tip</th><th>Mağaza</th><th>Yetkiler</th><th>Durum</th><th>Son giriş</th><th></th></tr></thead>
           <tbody>
             {kullanicilar.veri?.map((u) => (
               <tr key={u.id}>
                 <td>{u.kullaniciAdi}</td><td>{u.adSoyad}</td><td>{ROLLER[u.rol] ?? u.rol}</td><td>{u.depoNo ? depoAdi(u.depoNo) : ""}</td>
+                <td className="yetki-ozet">{u.rol === "admin" ? "Hepsi" : u.yetkiler.map(yetkiAdi).join(", ")}</td>
                 <td>{u.aktif ? "Aktif" : "Pasif"}</td><td>{saat(u.sonGiris)}</td>
                 <td><button className="ikincil" onClick={() => setK({ ...u, sifre: "" })}>Düzenle</button></td>
               </tr>

@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { api, bugun, para, qs, sayiOku, tarih } from "../api";
+import { api, bugun, Oturum, para, qs, sayiOku, tarih, yetkili } from "../api";
 import { Alan, CariOzet, CariSec, DepoSec, Durum, Mesaj, MesajKutusu, useVeri, YazmaDurumu } from "../ortak";
 
 type Satir = { kod: string; ad: string; birim: string; miktar: string; fiyat: string; isk: string };
@@ -219,13 +219,14 @@ function SatisFaturasi({ depoNo }: { depoNo: number | null }) {
   );
 }
 
-export default function Fatura({ depoNo }: { depoNo: number | null }) {
-  const [sekme, setSekme] = useState<"irsaliye" | "bekleyen" | "satis">("irsaliye");
-  const sekmeler = [
-    { id: "irsaliye", ad: "Alış irsaliyesi" },
-    { id: "bekleyen", ad: "Bekleyen irsaliyeler → alış faturası" },
-    { id: "satis", ad: "Satış faturası" },
-  ] as const;
+export default function Fatura({ depoNo, oturum }: { depoNo: number | null; oturum: Oturum }) {
+  const alis = yetkili(oturum, "alis_fatura");
+  const sekmeler = ([
+    { id: "irsaliye", ad: "Alış irsaliyesi", var: alis },
+    { id: "bekleyen", ad: "Bekleyen irsaliyeler → alış faturası", var: alis },
+    { id: "satis", ad: "Satış faturası", var: yetkili(oturum, "satis_fatura") },
+  ] as const).filter((s) => s.var);
+  const [sekme, setSekme] = useState<"irsaliye" | "bekleyen" | "satis">(sekmeler[0]?.id ?? "irsaliye");
   return (
     <section>
       <header className="sayfa-baslik"><h1>Fatura ve irsaliye</h1></header>

@@ -97,6 +97,31 @@ yeniden alınır. Her kayıt `IslemLog` tablosuna kim/ne zaman/ne ile yazılır.
 Sevk maliyeti ürünün son alış fiyatıdır (iskontolar düşülmüş). Mikro bazı sevklerde farklı bir maliyet
 önerebiliyor; bu yalnız maliyet raporunu etkiler, stok miktarını ve cariyi etkilemez.
 
+### 2b. Kullanıcılar ve yetkiler
+
+Kullanıcılar panelde **Yönetim → Kullanıcılar** bölümünden açılır (Mikro kullanıcıları değildir). Üç tip vardır:
+
+| Tip | Ne yapar |
+|---|---|
+| Yönetici | Her ekranı kullanır, kullanıcı ve yazıcı ekler. |
+| Merkez personeli | Yalnız işaretlenen ekranları kullanır, tüm depoları görür. |
+| Mağaza personeli | Yalnız işaretlenen ekranları kullanır, yalnız kendi deposunu görür ve yalnız kendi deposuna evrak girer. |
+
+Yetkiler ekran ekran işaretlenir: Günün cirosu, Satış raporu, Cari ekstre, Çek raporu, Çek girişi, Çek çıkışı,
+Alış irsaliyesi ve faturası, Satış faturası, Depolar arası sevk, Etiket basma. Örneğin yalnız alış faturası
+girecek muhasebe personeli için tip **Merkez personeli**, yetki yalnız **Alış irsaliyesi ve faturası** seçilir.
+Bu kişi menüde yalnız "Fatura ve irsaliye" ekranını, içinde de yalnız alış sekmelerini görür. Evrakta cari
+seçebilmesi için ayrıca cari ekstre yetkisi gerekmez.
+
+- Yetki sunucuda her istekte kontrol edilir; menüden gizlemek yalnız görünüş içindir.
+- Değişiklik kullanıcıya en geç 30 saniyede yansır, yeniden giriş gerekmez. Pasife alınan kullanıcının açık
+  oturumu hemen kapanır.
+- Günün cirosu tüm mağazaları gösterdiği için mağaza personeline verilemez.
+- Stok/fiyat sorgusu (terminalde barkod okutma) her kullanıcıya açıktır.
+- v0.2'den yükseltirken `sql/01_butcem_app.sql` dosyasını bir kez daha çalıştırın (yalnız `Yetkiler` sütununu
+  ekler). Eski kullanıcılar eski haklarıyla devam eder: merkez kullanıcıları her ekrana, mağaza kullanıcıları
+  sevk ve etikete yetkilidir. İstediğiniz zaman Yönetim'den daraltabilirsiniz.
+
 ## 3. Mağaza bilgisayarı: yazdırma programı
 
 Her mağazada bir kez yapılır.
@@ -136,7 +161,8 @@ olarak doğru çıkar.
 1. `ButcemTerminal.apk` dosyasını terminale kopyalayın (USB ya da paylaşım), açın. "Bilinmeyen kaynaklardan
    yüklemeye izin ver" sorulursa izin verin.
 2. Açılışta **sunucu adresi** (`http://SUNUCU-IP:5080`), kullanıcı adı ve şifre girilir. Her terminal için
-   panelden **Mağaza / el terminali** rolünde ayrı kullanıcı açın; kullanıcı mağazasına bağlıdır.
+   panelden **Mağaza personeli** tipinde ayrı kullanıcı açın; kullanıcı mağazasına bağlıdır. Terminalde
+   etiket bölümü **Etiket basma**, sevk menüsü **Depolar arası sevk** yetkisi varsa görünür.
 3. Okuyucu ayarı (iData **ScanWedge / Tarayıcı Ayarları**), ikisinden biri:
    - **Çıkış modu: Yayın (Broadcast)**, eylem `android.intent.action.SCANRESULT`, ek alan `value`
      (iData'nın varsayılanı), ya da
