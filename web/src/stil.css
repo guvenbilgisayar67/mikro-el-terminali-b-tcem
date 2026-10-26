@@ -82,6 +82,7 @@ button.sil { background: transparent; color: var(--hata); font-size: 18px; paddi
   nav .kullanici { margin: 0 0 0 auto; flex-direction: row; align-items: center; padding: 0; }
   main { padding: 14px 16px; }
   .iki-sutun { grid-template-columns: 1fr; }
+  main table { display: block; overflow-x: auto; max-width: 100%; }
 }
 @media print {
   nav, .filtre, .arac, .liste, .sayfa-baslik { display: none !important; }
