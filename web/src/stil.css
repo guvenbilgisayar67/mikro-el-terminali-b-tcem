@@ -107,3 +107,4 @@ input.kisa { width: 120px; }
 .yetkiler legend { color: var(--soluk); font-size: 13px; padding: 0 4px; }
 .yetkiler .kutu { padding-bottom: 4px; }
 .yetki-ozet { font-size: 12px; color: var(--soluk); white-space: normal; min-width: 160px; max-width: 240px; }
+input.isk { width: 54px; text-align: right; }

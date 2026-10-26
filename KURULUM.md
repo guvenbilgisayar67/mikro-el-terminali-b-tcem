@@ -89,10 +89,17 @@ Ne yazılır (Mikro'nun kendi evraklarıyla alan alan karşılaştırıldı):
 | Alış irsaliyesi | Alış irsaliyesi (13) | STOK_HAREKETLERI |
 | Bekleyen irsaliyeler | İrsaliyeden alış faturası (0) | CARI_HESAP_HAREKETLERI (+ irsaliyeye bağlantı) |
 | Satış faturası | Satış faturası (4 / 63) | STOK_HAREKETLERI, CARI_HESAP_HAREKETLERI, E_FATURA_ISLEMLERI |
+| Fiyat değişikliği | Fiyat değişiklik fişi, 1 numaralı satış fiyatı, tüm depolar | STOK_FIYAT_DEGISIKLIKLERI, STOK_SATIS_FIYAT_LISTELERI (+ STOKLAR değişti zamanı) |
 
 Kontroller: deponun Mikro'daki kilit tarihine ve ileri tarihe evrak girilmez; portföyde olmayan çek ciro
 edilmez; faturası girilmiş irsaliye tekrar faturalaşmaz; aynı anda Mikro'dan aynı numara alınırsa numara
 yeniden alınır. Her kayıt `IslemLog` tablosuna kim/ne zaman/ne ile yazılır.
+
+İrsaliye ve faturada her satıra 5 iskonto girilebilir. Mikro'daki gibi zincirlemedir: ikinci iskonto,
+birincisi düşüldükten kalan tutara uygulanır (ör. 901,44 TL'ye %15 + %2 + %6 = 135,22 + 15,32 + 45,05).
+
+v0.3'ten yükseltirken fiyat değişikliği için `sql/03_yazma_kullanicisi.sql` dosyasını bir kez daha çalıştırın
+(yalnız yeni tablo yetkilerini ekler).
 
 Sevk maliyeti ürünün son alış fiyatıdır (iskontolar düşülmüş). Mikro bazı sevklerde farklı bir maliyet
 önerebiliyor; bu yalnız maliyet raporunu etkiler, stok miktarını ve cariyi etkilemez.
@@ -108,7 +115,7 @@ Kullanıcılar panelde **Yönetim → Kullanıcılar** bölümünden açılır (
 | Mağaza personeli | Yalnız işaretlenen ekranları kullanır, yalnız kendi deposunu görür ve yalnız kendi deposuna evrak girer. |
 
 Yetkiler ekran ekran işaretlenir: Günün cirosu, Satış raporu, Cari ekstre, Çek raporu, Çek girişi, Çek çıkışı,
-Alış irsaliyesi ve faturası, Satış faturası, Depolar arası sevk, Etiket basma. Örneğin yalnız alış faturası
+Alış irsaliyesi ve faturası, Satış faturası, Depolar arası sevk, Fiyat değişikliği, Etiket basma. Örneğin yalnız alış faturası
 girecek muhasebe personeli için tip **Merkez personeli**, yetki yalnız **Alış irsaliyesi ve faturası** seçilir.
 Bu kişi menüde yalnız "Fatura ve irsaliye" ekranını, içinde de yalnız alış sekmelerini görür. Evrakta cari
 seçebilmesi için ayrıca cari ekstre yetkisi gerekmez.

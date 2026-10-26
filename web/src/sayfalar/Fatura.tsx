@@ -2,12 +2,14 @@ import { useRef, useState } from "react";
 import { api, bugun, Oturum, para, qs, sayiOku, tarih, yetkili } from "../api";
 import { Alan, CariOzet, CariSec, DepoSec, Durum, Mesaj, MesajKutusu, useVeri, YazmaDurumu } from "../ortak";
 
-type Satir = { kod: string; ad: string; birim: string; miktar: string; fiyat: string; isk: string };
+type Satir = { kod: string; ad: string; birim: string; miktar: string; fiyat: string; isk: string[] };
 type Bekleyen = { seri: string; sira: number; tarih: string; belgeNo: string; cariKod: string; cariAdi: string; depoNo: number; satirSayisi: number; araToplam: number };
 type FaturaSonuc = { evrakTip: number; seri: string; sira: number; araToplam: number; iskonto: number; kdv: number; toplam: number };
 
 const n = (s: string) => sayiOku(s) || 0;
-const satirTutar = (s: Satir) => { const t = n(s.miktar) * n(s.fiyat); return t - (t * n(s.isk)) / 100; };
+const BOS_ISK = ["", "", "", "", ""];
+// Mikro'daki gibi zincirleme: her iskonto bir öncekinden kalan tutara uygulanır.
+const satirTutar = (s: Satir) => s.isk.reduce((t, y) => t - (t * n(y)) / 100, n(s.miktar) * n(s.fiyat));
 
 /** Ürün satırları: barkod okut, miktar / fiyat / iskonto düzenle. */
 function Satirlar({ satirlar, degisti, fiyatGetir, kdvDahil }: {
@@ -26,13 +28,15 @@ function Satirlar({ satirlar, degisti, fiyatGetir, kdvDahil }: {
     try {
       const u = await fiyatGetir(b);
       const var_ = satirlar.find((s) => s.kod === u.kod);
-      degisti(var_ ? satirlar.map((s) => (s === var_ ? { ...s, miktar: String(n(s.miktar) + 1) } : s)) : [...satirlar, { ...u, miktar: "1", isk: "" }]);
+      degisti(var_ ? satirlar.map((s) => (s === var_ ? { ...s, miktar: String(n(s.miktar) + 1) } : s)) : [...satirlar, { ...u, miktar: "1", isk: BOS_ISK }]);
       setHata(null);
     } catch (err) {
       setHata(`${b}: ${(err as Error).message}`);
     }
   }
-  const degis = (i: number, alan: keyof Satir, v: string) => degisti(satirlar.map((s, j) => (j === i ? { ...s, [alan]: v } : s)));
+  const degis = (i: number, alan: "miktar" | "fiyat", v: string) => degisti(satirlar.map((s, j) => (j === i ? { ...s, [alan]: v } : s)));
+  const iskDegis = (i: number, k: number, v: string) =>
+    degisti(satirlar.map((s, j) => (j === i ? { ...s, isk: s.isk.map((x, m) => (m === k ? v : x)) } : s)));
 
   return (
     <>
@@ -42,15 +46,15 @@ function Satirlar({ satirlar, degisti, fiyatGetir, kdvDahil }: {
       </form>
       {hata && <div className="uyari hata">{hata}</div>}
       <table>
-        <thead><tr><th>Ürün</th><th>Kod</th><th className="s">Miktar</th><th className="s">Birim fiyat {kdvDahil ? "(KDV dahil)" : "(KDV hariç)"}</th><th className="s">İsk. %</th><th className="s">Tutar</th><th></th></tr></thead>
+        <thead><tr><th>Ürün</th><th>Kod</th><th className="s">Miktar</th><th className="s">Birim fiyat {kdvDahil ? "(KDV dahil)" : "(KDV hariç)"}</th>{BOS_ISK.map((_, k) => <th key={k} className="s" title="Zincirleme: bir öncekinden kalan tutara uygulanır">İsk.{k + 1} %</th>)}<th className="s">Tutar</th><th></th></tr></thead>
         <tbody>
-          {satirlar.length === 0 && <tr><td colSpan={7} className="bos">Ürün okutun.</td></tr>}
+          {satirlar.length === 0 && <tr><td colSpan={11} className="bos">Ürün okutun.</td></tr>}
           {satirlar.map((s, i) => (
             <tr key={s.kod}>
               <td>{s.ad}</td><td>{s.kod}</td>
               <td className="s"><input className="adet" inputMode="decimal" value={s.miktar} onChange={(e) => degis(i, "miktar", e.target.value)} /> {s.birim}</td>
               <td className="s"><input className="fiyat" inputMode="decimal" value={s.fiyat} onChange={(e) => degis(i, "fiyat", e.target.value)} /></td>
-              <td className="s"><input className="adet" inputMode="decimal" value={s.isk} onChange={(e) => degis(i, "isk", e.target.value)} /></td>
+              {s.isk.map((y, k) => <td key={k} className="s"><input className="isk" inputMode="decimal" value={y} onChange={(e) => iskDegis(i, k, e.target.value)} /></td>)}
               <td className="s">{para(satirTutar(s))}</td>
               <td><button className="sil" title="Çıkar" onClick={() => degisti(satirlar.filter((_, j) => j !== i))}>×</button></td>
             </tr>
@@ -61,9 +65,11 @@ function Satirlar({ satirlar, degisti, fiyatGetir, kdvDahil }: {
   );
 }
 
-const satirGecerli = (s: Satir[]) => s.length > 0 && s.every((x) => n(x.miktar) > 0 && n(x.fiyat) >= 0 && n(x.isk) >= 0 && n(x.isk) < 100);
+const satirGecerli = (s: Satir[]) => s.length > 0 && s.every((x) => n(x.miktar) > 0 && n(x.fiyat) >= 0 && x.isk.every((y) => n(y) >= 0 && n(y) < 100));
+// Sondaki boş iskontolar gönderilmez; aradaki boşluk 0 olur (Mikro'da 1. iskonto boş, 2. dolu olabiliyor).
+const iskontolar = (isk: string[]) => { const v = isk.map(n); while (v.length && v[v.length - 1] === 0) v.pop(); return v; };
 const satirIstek = (s: Satir[], kdvDahil: boolean) =>
-  s.map((x) => ({ urun: x.kod, miktar: n(x.miktar), birimFiyat: n(x.fiyat), iskontoYuzde: n(x.isk) || null, kdvDahil }));
+  s.map((x) => ({ urun: x.kod, miktar: n(x.miktar), birimFiyat: n(x.fiyat), iskontolar: iskontolar(x.isk), kdvDahil }));
 
 function AlisIrsaliyesi({ depoNo }: { depoNo: number | null }) {
   const [cari, setCari] = useState<CariOzet | null>(null);

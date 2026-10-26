@@ -33,6 +33,7 @@ public static class Yetkiler
     public const string AlisFatura = "alis_fatura";
     public const string SatisFatura = "satis_fatura";
     public const string Sevk = "sevk";
+    public const string FiyatDegisikligi = "fiyat_degisikligi";
     public const string Etiket = "etiket";
 
     public static readonly IReadOnlyList<(string Kod, string Ad)> Liste =
@@ -46,6 +47,7 @@ public static class Yetkiler
         (AlisFatura, "Alış irsaliyesi ve faturası"),
         (SatisFatura, "Satış faturası"),
         (Sevk, "Depolar arası sevk"),
+        (FiyatDegisikligi, "Fiyat değişikliği"),
         (Etiket, "Etiket basma"),
     ];
 

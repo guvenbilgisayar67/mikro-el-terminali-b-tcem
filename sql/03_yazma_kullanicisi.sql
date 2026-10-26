@@ -18,11 +18,15 @@ GRANT INSERT ON dbo.STOK_HAREKETLERI       TO butcem_yazma;   -- sevk, irsaliye,
 GRANT INSERT ON dbo.CARI_HESAP_HAREKETLERI TO butcem_yazma;   -- fatura ve çek bordrosu cari hareketi
 GRANT INSERT ON dbo.ODEME_EMIRLERI         TO butcem_yazma;   -- yeni çek kartı
 GRANT INSERT ON dbo.E_FATURA_ISLEMLERI     TO butcem_yazma;   -- satış faturasının e-belge kaydı (Mikro'dan gönderilir)
+GRANT INSERT ON dbo.STOK_FIYAT_DEGISIKLIKLERI  TO butcem_yazma;   -- fiyat değişikliği fişi satırları
+GRANT INSERT ON dbo.STOK_SATIS_FIYAT_LISTELERI TO butcem_yazma;   -- fiyatı hiç girilmemiş ürün
 
 -- Güncelleme yalnız bu kolonlarda:
 GRANT UPDATE ON dbo.ODEME_EMIRLERI (sck_nerede_cari_cins, sck_nerede_cari_kodu, sck_nerede_cari_grupno, sck_sonpoz,
                                     sck_son_hareket_tarihi, sck_lastup_user, sck_lastup_date) TO butcem_yazma;  -- çek ciro
 GRANT UPDATE ON dbo.STOK_HAREKETLERI (sth_fat_uid, sth_lastup_user, sth_lastup_date) TO butcem_yazma;          -- irsaliyeyi faturaya bağlama
+GRANT UPDATE ON dbo.STOK_SATIS_FIYAT_LISTELERI (sfiyat_fiyati, sfiyat_lastup_user, sfiyat_lastup_date) TO butcem_yazma;  -- yeni satış fiyatı
+GRANT UPDATE ON dbo.STOKLAR (sto_lastup_user, sto_lastup_date) TO butcem_yazma;                                -- kart değişti işareti (kasaya gider)
 
 -- Silme yetkisi yok.
 DENY DELETE ON SCHEMA::dbo TO butcem_yazma;

@@ -20,7 +20,13 @@ namespace Butcem.Api.Features;
 public static class Faturalar
 {
     /// <param name="KdvDahil">true ise BirimFiyat KDV dahildir; satırın KDV oranıyla hariç fiyata çevrilir.</param>
-    public sealed record SatirIstek(string Urun, decimal Miktar, decimal BirimFiyat, decimal? IskontoYuzde, bool KdvDahil = false);
+    /// <summary>Iskontolar: en fazla 5 yüzde, Mikro'daki gibi zincirleme (her biri bir öncekinden kalan tutara uygulanır).
+    /// Eski istemciler için tek IskontoYuzde de kabul edilir.</summary>
+    public sealed record SatirIstek(string Urun, decimal Miktar, decimal BirimFiyat, decimal? IskontoYuzde, bool KdvDahil = false,
+                                    List<decimal>? Iskontolar = null)
+    {
+        public decimal[] Yuzdeler => Iskontolar is { Count: > 0 } ? [.. Iskontolar] : IskontoYuzde is { } y ? [y] : [];
+    }
 
     public sealed record IrsaliyeIstek(string CariKod, int DepoNo, DateTime? Tarih, string? BelgeNo, DateTime? BelgeTarih,
                                        List<SatirIstek> Satirlar);
@@ -41,7 +47,11 @@ public static class Faturalar
                                          double Isk4, double Isk5, double Isk6, double Vergi, Guid FatUid);
 
     /// <summary>Hesaplanmış satır: tutar KDV hariç brüt, iskonto ayrı, KDV iskontodan sonra.</summary>
-    private sealed record Hesap(MikroEvrak.StokBilgi Stok, decimal Miktar, decimal Tutar, decimal Iskonto, double Kdv);
+    private sealed record Hesap(MikroEvrak.StokBilgi Stok, decimal Miktar, decimal Tutar, decimal[] Iskontolar, double Kdv)
+    {
+        public decimal Iskonto => Iskontolar.Sum();
+        public double Isk(int i) => i < Iskontolar.Length ? (double)Iskontolar[i] : 0;
+    }
 
     public static void Map(WebApplication app)
     {
@@ -108,12 +118,13 @@ public static class Faturalar
         if (satirlar.Count > 500) throw new IslemHatasi("Bir evrakta en fazla 500 satır olabilir.");
         if (satirlar.Any(s => s.Miktar <= 0)) throw new IslemHatasi("Miktar sıfırdan büyük olmalı.");
         if (satirlar.Any(s => s.BirimFiyat < 0)) throw new IslemHatasi("Fiyat negatif olamaz.");
-        if (satirlar.Any(s => s.IskontoYuzde is < 0 or >= 100)) throw new IslemHatasi("İskonto %0 ile %100 arasında olmalı.");
+        if (satirlar.Any(s => s.Yuzdeler.Length > 5)) throw new IslemHatasi("Bir satırda en fazla 5 iskonto olabilir.");
+        if (satirlar.Any(s => s.Yuzdeler.Any(y => y is < 0 or >= 100))) throw new IslemHatasi("İskonto %0 ile %100 arasında olmalı.");
         if (tarih is { } t && t.Date > DateTime.Today) throw new IslemHatasi("İleri tarihli evrak girilemez.");
     }
 
     /// <summary>KDV oranı (%) vergi göstergesine göre. Mikro'nun parametre tablosu kopyada yok; değerler hareketlerden doğrulandı.</summary>
-    private static decimal KdvOrani(IConfiguration config, int pntr)
+    internal static decimal KdvOrani(IConfiguration config, int pntr)
     {
         if (config[$"Yazma:KdvOranlari:{pntr}"] is { } s) return decimal.Parse(s, System.Globalization.CultureInfo.InvariantCulture);
         return pntr switch
@@ -130,10 +141,12 @@ public static class Faturalar
             var oran = KdvOrani(config, stok.VergiPntr);
             var birim = s.KdvDahil ? s.BirimFiyat / (1 + oran / 100) : s.BirimFiyat;
             var tutar = Math.Round(birim * s.Miktar, 2, MidpointRounding.AwayFromZero);
-            // Mikro iskontoyu da yuvarlamadan saklar (örn. 158,72'nin %10'u 15,872).
-            var isk = Math.Round(tutar * (s.IskontoYuzde ?? 0) / 100, 6);
-            // Mikro KDV'yi satırda yuvarlamadan saklar (örn. 17.4257).
-            var kdv = Math.Round((double)(tutar - isk) * (double)oran / 100, 6);
+            // Mikro iskontoları yuvarlamadan ve zincirleme saklar: 901,44 için %15 + %2 + %6 =
+            // 135,216 + 15,32448 + 45,0539712 (sth_isk_mas = 1, her biri kalan tutardan).
+            var kalan = tutar;
+            var isk = s.Yuzdeler.Select(y => { var i = Math.Round(kalan * y / 100, 10); kalan -= i; return i; }).ToArray();
+            // Mikro KDV'yi satırda yuvarlamadan saklar (örn. 7,058455488).
+            var kdv = (double)Math.Round(kalan * oran / 100, 10);
             return new Hesap(stok, s.Miktar, tutar, isk, kdv);
         }).ToList();
 
@@ -157,6 +170,7 @@ public static class Faturalar
                                istek.BelgeNo, cari, s, altKur, istek.DepoNo);
             d["sth_tip"] = (byte)Mikro.StokHarTip.Giris;
             d["sth_cari_srm_merkezi"] = srm;
+            d["sth_stok_srm_merkezi"] = srm;
             d["sth_maliyet_ana"] = net;
             d["sth_maliyet_alternatif"] = Math.Round(net / altKur, 12);
             d["sth_maliyet_orjinal"] = net;
@@ -237,7 +251,7 @@ public static class Faturalar
             for (var k = 2; k <= 10; k++) d[$"sth_isk_mas{k}"] = (byte)1;
             yazici.Ekle(conn, tx, "STOK_HAREKETLERI", d);
             irsSatirlari.Add(new IrsaliyeSatiri(Guid.Empty, tarih, tarih, istek.BelgeNo ?? "", cari.Kod, srm, s.Stok.VergiPntr,
-                (double)s.Tutar, (double)s.Iskonto, 0, 0, 0, 0, 0, s.Kdv, Guid.Empty));
+                (double)s.Tutar, s.Isk(0), s.Isk(1), s.Isk(2), s.Isk(3), s.Isk(4), 0, s.Kdv, Guid.Empty));
         }
 
         var simdi = MikroEvrak.Simdi();
@@ -306,7 +320,11 @@ public static class Faturalar
             ["sth_miktar2"] = (double)s.Miktar,
             ["sth_birim_pntr"] = (byte)1,
             ["sth_tutar"] = (double)s.Tutar,
-            ["sth_iskonto1"] = (double)s.Iskonto,
+            ["sth_iskonto1"] = s.Isk(0),
+            ["sth_iskonto2"] = s.Isk(1),
+            ["sth_iskonto3"] = s.Isk(2),
+            ["sth_iskonto4"] = s.Isk(3),
+            ["sth_iskonto5"] = s.Isk(4),
             ["sth_vergi_pntr"] = (byte)s.Stok.VergiPntr,
             ["sth_vergi"] = s.Kdv,
             ["sth_giris_depo_no"] = depoNo,
@@ -325,7 +343,7 @@ public static class Faturalar
         {
             satirlar.Sum(s => s.Isk1), satirlar.Sum(s => s.Isk2), satirlar.Sum(s => s.Isk3),
             satirlar.Sum(s => s.Isk4), satirlar.Sum(s => s.Isk5), satirlar.Sum(s => s.Isk6),
-        };
+        }.Select(x => Math.Round(x, 10)).ToArray();
         var d = new Dictionary<string, object?>
         {
             ["cha_Guid"] = guid,
@@ -354,7 +372,7 @@ public static class Faturalar
         var kdvToplam = 0d;
         foreach (var grup in satirlar.GroupBy(s => s.VergiPntr).Where(x => x.Key > 0))
         {
-            var v = Math.Round(grup.Sum(s => s.Vergi), 6);
+            var v = Math.Round(grup.Sum(s => s.Vergi), 10);
             d[$"cha_vergi{grup.Key}"] = v;
             kdvToplam += v;
         }

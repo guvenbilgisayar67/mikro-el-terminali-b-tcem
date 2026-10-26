@@ -96,6 +96,7 @@ EtiketBaskisi.Map(app);
 DepoSevk.Map(app);
 CekIslemleri.Map(app);
 Faturalar.Map(app);
+FiyatDegisikligi.Map(app);
 
 app.MapFallbackToFile("index.html");
 
