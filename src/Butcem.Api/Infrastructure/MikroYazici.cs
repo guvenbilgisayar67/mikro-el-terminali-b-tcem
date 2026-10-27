@@ -78,7 +78,9 @@ public sealed class MikroYazici(IConfiguration config)
             var deger = degerler.FirstOrDefault(d => d.Key.Equals(ad, StringComparison.OrdinalIgnoreCase));
             adlar.Add($"[{ad}]");
             parametreler.Add($"@p{i}");
-            p.Add($"p{i}", deger.Key is not null ? deger.Value ?? BosDeger(tip) : BosDeger(tip));
+            var v = deger.Key is not null ? deger.Value ?? BosDeger(tip) : BosDeger(tip);
+            // DBNull.Value: Mikro'nun kendi kaydında NULL kalan kolon (örn. yeni sürümde eklenmiş sipariş kolonları).
+            p.Add($"p{i}", v is DBNull ? null : v);
         }
         conn.Execute($"INSERT INTO [{tablo}] ({string.Join(",", adlar)}) VALUES ({string.Join(",", parametreler)})", p, tx);
     }

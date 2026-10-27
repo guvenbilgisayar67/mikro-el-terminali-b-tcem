@@ -97,6 +97,7 @@ DepoSevk.Map(app);
 CekIslemleri.Map(app);
 Faturalar.Map(app);
 FiyatDegisikligi.Map(app);
+Siparisler.Map(app);
 
 app.MapFallbackToFile("index.html");
 

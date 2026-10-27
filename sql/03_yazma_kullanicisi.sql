@@ -20,6 +20,8 @@ GRANT INSERT ON dbo.ODEME_EMIRLERI         TO butcem_yazma;   -- yeni çek kart�
 GRANT INSERT ON dbo.E_FATURA_ISLEMLERI     TO butcem_yazma;   -- satış faturasının e-belge kaydı (Mikro'dan gönderilir)
 GRANT INSERT ON dbo.STOK_FIYAT_DEGISIKLIKLERI  TO butcem_yazma;   -- fiyat değişikliği fişi satırları
 GRANT INSERT ON dbo.STOK_SATIS_FIYAT_LISTELERI TO butcem_yazma;   -- fiyatı hiç girilmemiş ürün
+GRANT INSERT ON dbo.SIPARISLER                 TO butcem_yazma;   -- tedarikçiye verilen sipariş
+GRANT INSERT ON dbo.DEPOLAR_ARASI_SIPARISLER   TO butcem_yazma;   -- depodan istenen mal
 
 -- Güncelleme yalnız bu kolonlarda:
 GRANT UPDATE ON dbo.ODEME_EMIRLERI (sck_nerede_cari_cins, sck_nerede_cari_kodu, sck_nerede_cari_grupno, sck_sonpoz,

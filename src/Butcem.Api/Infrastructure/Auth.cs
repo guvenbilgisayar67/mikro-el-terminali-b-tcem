@@ -35,6 +35,7 @@ public static class Yetkiler
     public const string Sevk = "sevk";
     public const string FiyatDegisikligi = "fiyat_degisikligi";
     public const string Etiket = "etiket";
+    public const string Siparis = "siparis";
 
     public static readonly IReadOnlyList<(string Kod, string Ad)> Liste =
     [
@@ -49,12 +50,13 @@ public static class Yetkiler
         (Sevk, "Depolar arası sevk"),
         (FiyatDegisikligi, "Fiyat değişikliği"),
         (Etiket, "Etiket basma"),
+        (Siparis, "Sipariş (öneri, kayıt, gönderim)"),
     ];
 
     public static readonly string[] Tumu = Liste.Select(x => x.Kod).ToArray();
 
     /// <summary>Evrak ekranlarında cari seçebilmek için cari aramasını açan yetkiler.</summary>
-    public static readonly string[] CariArayabilir = [CariEkstre, CekGiris, CekCikis, AlisFatura, SatisFatura];
+    public static readonly string[] CariArayabilir = [CariEkstre, CekGiris, CekCikis, AlisFatura, SatisFatura, Siparis];
 
     /// <summary>Yetkiler sütunu boşsa (eski kayıtlar) kullanıcı tipinin eski varsayılanı.</summary>
     public static string[] Varsayilan(string rol) => rol == Roller.Magaza ? [Sevk, Etiket] : Tumu;

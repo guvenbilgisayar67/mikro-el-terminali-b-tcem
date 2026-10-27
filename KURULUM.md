@@ -90,6 +90,8 @@ Ne yazılır (Mikro'nun kendi evraklarıyla alan alan karşılaştırıldı):
 | Bekleyen irsaliyeler | İrsaliyeden alış faturası (0) | CARI_HESAP_HAREKETLERI (+ irsaliyeye bağlantı) |
 | Satış faturası | Satış faturası (4 / 63) | STOK_HAREKETLERI, CARI_HESAP_HAREKETLERI, E_FATURA_ISLEMLERI |
 | Fiyat değişikliği | Fiyat değişiklik fişi, 1 numaralı satış fiyatı, tüm depolar | STOK_FIYAT_DEGISIKLIKLERI, STOK_SATIS_FIYAT_LISTELERI (+ STOKLAR değişti zamanı) |
+| Sipariş (tedarikçiye) | Verilen sipariş (satınalma siparişi), seri mağazanın serisi | SIPARISLER |
+| Sipariş (depoya) | Depolar arası sipariş | DEPOLAR_ARASI_SIPARISLER |
 
 Kontroller: deponun Mikro'daki kilit tarihine ve ileri tarihe evrak girilmez; portföyde olmayan çek ciro
 edilmez; faturası girilmiş irsaliye tekrar faturalaşmaz; aynı anda Mikro'dan aynı numara alınırsa numara
@@ -98,8 +100,9 @@ yeniden alınır. Her kayıt `IslemLog` tablosuna kim/ne zaman/ne ile yazılır.
 İrsaliye ve faturada her satıra 5 iskonto girilebilir. Mikro'daki gibi zincirlemedir: ikinci iskonto,
 birincisi düşüldükten kalan tutara uygulanır (ör. 901,44 TL'ye %15 + %2 + %6 = 135,22 + 15,32 + 45,05).
 
-v0.3'ten yükseltirken fiyat değişikliği için `sql/03_yazma_kullanicisi.sql` dosyasını bir kez daha çalıştırın
-(yalnız yeni tablo yetkilerini ekler).
+v0.3'ten yükseltirken fiyat değişikliği, v0.4'ten yükseltirken sipariş için `sql/03_yazma_kullanicisi.sql`
+dosyasını bir kez daha çalıştırın (yalnız yeni tablo yetkilerini ekler). Sipariş için `sql/01_butcem_app.sql`
+de bir kez daha çalıştırılmalı (gönderim kaydı ve tedarikçi iletişim tablolarını ekler).
 
 Sevk maliyeti ürünün son alış fiyatıdır (iskontolar düşülmüş). Mikro bazı sevklerde farklı bir maliyet
 önerebiliyor; bu yalnız maliyet raporunu etkiler, stok miktarını ve cariyi etkilemez.
@@ -115,7 +118,7 @@ Kullanıcılar panelde **Yönetim → Kullanıcılar** bölümünden açılır (
 | Mağaza personeli | Yalnız işaretlenen ekranları kullanır, yalnız kendi deposunu görür ve yalnız kendi deposuna evrak girer. |
 
 Yetkiler ekran ekran işaretlenir: Günün cirosu, Satış raporu, Cari ekstre, Çek raporu, Çek girişi, Çek çıkışı,
-Alış irsaliyesi ve faturası, Satış faturası, Depolar arası sevk, Fiyat değişikliği, Etiket basma. Örneğin yalnız alış faturası
+Alış irsaliyesi ve faturası, Satış faturası, Depolar arası sevk, Fiyat değişikliği, Etiket basma, Sipariş. Örneğin yalnız alış faturası
 girecek muhasebe personeli için tip **Merkez personeli**, yetki yalnız **Alış irsaliyesi ve faturası** seçilir.
 Bu kişi menüde yalnız "Fatura ve irsaliye" ekranını, içinde de yalnız alış sekmelerini görür. Evrakta cari
 seçebilmesi için ayrıca cari ekstre yetkisi gerekmez.
@@ -128,6 +131,37 @@ seçebilmesi için ayrıca cari ekstre yetkisi gerekmez.
 - v0.2'den yükseltirken `sql/01_butcem_app.sql` dosyasını bir kez daha çalıştırın (yalnız `Yetkiler` sütununu
   ekler). Eski kullanıcılar eski haklarıyla devam eder: merkez kullanıcıları her ekrana, mağaza kullanıcıları
   sevk ve etikete yetkilidir. İstediğiniz zaman Yönetim'den daraltabilirsiniz.
+
+### 2c. Sipariş ve gönderim
+
+**Sipariş** ekranında iki yol var:
+
+- **Otomatik öneri:** mağaza seçilir, "son kaç günün satışı" (varsayılan 28) ve "kaç günlük sipariş" (varsayılan 7)
+  yazılır. Her ürün için: günlük satış × gün − depodaki stok − açık siparişler, en yakın tam sayıya yuvarlanır.
+  Satış, Satış raporundaki tanımla aynıdır (iadeler düşülür). Mikro'da stoğu eksi görünen ürünlerde stok sıfır
+  sayılır. Açık sipariş olarak son 30 gündeki, kapatılmamış ve tamamı gelmemiş siparişler düşülür.
+  Ürünler **kime sipariş verileceğine göre** gruplanır: ürün mağazaya en son alışla geldiyse o tedarikçiye,
+  depolar arası sevkle geldiyse o depoya. Mağazaya hiç girişi yoksa Mikro stok kartındaki satıcı cari kullanılır;
+  o da boşsa "Kaynağı bilinmeyen" grubunda tedarikçi siz seçersiniz. Pasif ve Mikro'da "sipariş dursun" işaretli
+  ürünler önerilmez.
+- **Elle sipariş:** tedarikçi ya da depo seçilir, ürünler barkodla eklenir. Eklenen ürünün satış, stok ve öneri
+  bilgisi yine gösterilir.
+
+Miktarlar değiştirilebilir. "Siparişi Mikro'ya kaydet" Mikro'da sipariş evrakı açar (Mikro'dan irsaliye girerken
+siparişi çağırabilirsiniz). Tedarikçi siparişinde fiyat olarak son alış fiyatı yazılır; gönderilen belgede fiyat yoktur.
+
+**Gönderim** ("Verilen siparişler ve gönderim" sekmesi; Mikro'dan girilen siparişler de burada görünür):
+
+- **E-posta:** sipariş PDF ekiyle gider. `appsettings.json` içinde `Eposta` bölümü doldurulmalı:
+  `Sunucu`, `Port`, `Ssl`, `Kullanici`, `Sifre`, `Gonderen`, `GonderenAd`. Gmail için `smtp.gmail.com`, 587,
+  `Ssl: true` ve Google hesabında oluşturulan "uygulama şifresi" kullanılır. `Firma:Ad` belgenin başlığında görünür.
+- **WhatsApp:** sipariş metni kullanıcının telefonundaki ya da bilgisayarındaki WhatsApp'ta hazır açılır, gönder
+  tuşuna kişi kendisi basar (WhatsApp'ın ücretsiz yolu budur; otomatik gönderim için WhatsApp Business API
+  aboneliği gerekir). PDF'i isterseniz "PDF indir" ile ayrıca ekleyebilirsiniz.
+- E-posta ve telefon önce Mikro cari kartından gelir; ekranda değiştirilen adres bir sonraki siparişte hatırlanır
+  (Bütçem'in kendi veritabanında tutulur, Mikro'ya yazılmaz). Her gönderim kim / ne zaman / nereye diye kaydedilir.
+
+Mağaza personeline sipariş yetkisi verilirse yalnız kendi deposunun siparişini görür ve verir.
 
 ## 3. Mağaza bilgisayarı: yazdırma programı
 
@@ -213,6 +247,12 @@ Kaybolursa yeni sürüm kurmadan önce eskisini kaldırmak gerekir.
 # Panel:                cd web && npm install && npm run build      (çıktı src/Butcem.Api/wwwroot)
 # APK:                  android/derle.sh   (javac + dx + aapt + apksigner; Gradle gerekmez)
 ```
+
+**Her değişiklikten önce ve sonra:** `dotnet test` (tests/Butcem.Tests). Testler kopya veritabanına bağlanır
+(`appsettings.Local.json`) ve Mikro'ya yazmaz: her ekranın okuma uçlarının cevap verdiğini, yetkilerin (giriş yok
+→ 401, yetki yok → 403, mağaza başka depo → red) ve kayıt doğrulamalarının eskisi gibi çalıştığını, sipariş
+hesabını ve eski yetki varsayılanlarını kontrol eder. Canlı veritabanını gösteren ayarla çalıştırmayın
+(`test_magaza` kullanıcısı ekler). Yeni ekran eklenince okuma ucu `EkranlarTesti` listesine eklenir.
 
 Kod düzeni: `src/Butcem.Api/Features` her ekranın uç noktaları, `Infrastructure` bağlantı / yetki / Mikro kodları,
 `Etiket` etiket çizimi ve yazıcı komutları (TSPL, EPL, A4), `sql` kurulum betikleri.

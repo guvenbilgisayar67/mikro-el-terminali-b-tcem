@@ -28,7 +28,7 @@ CREATE TABLE dbo.Kullanicilar (
 );
 GO
 /* v0.3: ekran yetkileri, virgülle ayrılmış (ciro,satis_raporu,cari_ekstre,cek_raporu,cek_giris,cek_cikis,
-   alis_fatura,satis_fatura,sevk,etiket). NULL: eski varsayılan (merkez: hepsi, mağaza: sevk + etiket). Admin her şeye yetkili. */
+   alis_fatura,satis_fatura,sevk,fiyat_degisikligi,etiket,siparis). NULL: eski varsayılan (merkez: hepsi, mağaza: sevk + etiket). Admin her şeye yetkili. */
 IF COL_LENGTH(N'dbo.Kullanicilar', N'Yetkiler') IS NULL
     ALTER TABLE dbo.Kullanicilar ADD Yetkiler nvarchar(400) NULL;
 GO
@@ -88,6 +88,31 @@ CREATE TABLE dbo.IslemLog (
 GO
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_IslemLog_Zaman')
     CREATE INDEX IX_IslemLog_Zaman ON dbo.IslemLog (Zaman);
+GO
+
+/* v0.5: sipariş gönderimleri ve tedarikçi / depo iletişim bilgileri (Mikro cari kartına yazılmaz). */
+IF OBJECT_ID(N'dbo.SiparisGonderimleri') IS NULL
+CREATE TABLE dbo.SiparisGonderimleri (
+    Id          bigint IDENTITY(1,1) PRIMARY KEY,
+    Tur         nvarchar(10)  NOT NULL,             -- tedarikci, depo
+    Seri        nvarchar(20)  NOT NULL,
+    Sira        int           NOT NULL,
+    Kanal       nvarchar(10)  NOT NULL,             -- eposta, whatsapp
+    Alici       nvarchar(200) NOT NULL,
+    KullaniciId int NULL,
+    Zaman       datetime2 NOT NULL DEFAULT SYSDATETIME()
+);
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_SiparisGonderimleri_Zaman')
+    CREATE INDEX IX_SiparisGonderimleri_Zaman ON dbo.SiparisGonderimleri (Zaman);
+GO
+IF OBJECT_ID(N'dbo.TedarikciIletisim') IS NULL
+CREATE TABLE dbo.TedarikciIletisim (
+    Anahtar          nvarchar(30) PRIMARY KEY,      -- cari kodu ya da DEPO:<no>
+    Eposta           nvarchar(200) NULL,
+    Telefon          nvarchar(20)  NULL,
+    GuncellemeZamani datetime2 NOT NULL DEFAULT SYSDATETIME()
+);
 GO
 
 /* İlk yönetici. Şifre: Butcem2026!  — ilk girişten sonra değiştirin. */
