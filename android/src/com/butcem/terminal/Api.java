@@ -28,6 +28,9 @@ public final class Api {
 
     private final SharedPreferences ayar;
 
+    /** Son isteğin sonucuna göre: sunucuya ulaşılamadıysa false. Ekranlar çevrimiçi / çevrimdışı göstergesi için kullanır. */
+    public static volatile boolean cevrimici = true;
+
     public Api(Context c) {
         ayar = c.getSharedPreferences("butcem", Context.MODE_PRIVATE);
     }
@@ -64,14 +67,17 @@ public final class Api {
 
     public void cikis() { ayar.edit().remove("token").apply(); }
 
-    public void get(String yol, Sonuc s) { istek("GET", yol, null, s); }
+    public void get(String yol, Sonuc s) { istek("GET", yol, null, null, s); }
 
-    public void post(String yol, JSONObject govde, Sonuc s) { istek("POST", yol, govde.toString(), s); }
+    public void post(String yol, JSONObject govde, Sonuc s) { istek("POST", yol, govde.toString(), null, s); }
 
     /** Gövdesi hazır JSON metni olan istek (örn. dizi). */
-    public void postMetin(String yol, String govde, Sonuc s) { istek("POST", yol, govde, s); }
+    public void postMetin(String yol, String govde, Sonuc s) { istek("POST", yol, govde, null, s); }
 
-    private void istek(final String yontem, final String yol, final String govde, final Sonuc s) {
+    /** Bekleyen işlem gönderimi: sunucu aynı kimlikle gelen isteği ikinci kez işlemez. */
+    public void postIslem(String yol, String govde, String istemciId, Sonuc s) { istek("POST", yol, govde, istemciId, s); }
+
+    private void istek(final String yontem, final String yol, final String govde, final String istemciId, final Sonuc s) {
         final String adres = sunucu() + yol;
         final String tk = token();
         ARKA.execute(new Runnable() {
@@ -85,6 +91,7 @@ public final class Api {
                     c.setRequestMethod(yontem);
                     c.setRequestProperty("Accept", "application/json");
                     if (tk != null) c.setRequestProperty("Authorization", "Bearer " + tk);
+                    if (istemciId != null) c.setRequestProperty("X-Istemci-Id", istemciId);
                     if (govde != null) {
                         c.setDoOutput(true);
                         c.setRequestProperty("Content-Type", "application/json; charset=utf-8");
@@ -99,6 +106,7 @@ public final class Api {
                 } catch (Exception e) {
                     metin = "Sunucuya ulaşılamadı (" + e.getClass().getSimpleName() + "). VPN bağlantısını ve sunucu adresini kontrol edin.";
                 }
+                cevrimici = durum > 0;
                 final int d = durum;
                 final String m = metin;
                 ANA.post(new Runnable() {

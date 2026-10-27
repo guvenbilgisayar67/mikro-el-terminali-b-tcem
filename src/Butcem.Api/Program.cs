@@ -26,6 +26,8 @@ builder.Services.AddSingleton<IslemLogu>();
 builder.Services.AddSingleton<EtiketCizici>();
 builder.Services.AddSingleton<MikroYazici>();
 builder.Services.AddMemoryCache();
+// Terminalin indirdiği ürün listesi gibi büyük JSON cevapları sıkıştırılır (istemci isterse).
+builder.Services.AddResponseCompression(o => o.EnableForHttps = true);
 builder.Services.AddSingleton<KullaniciYukleyici>();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -51,6 +53,7 @@ builder.Services.AddSwaggerGen();
 var app = builder.Build();
 
 app.UseExceptionHandler();
+app.UseResponseCompression();
 // İş kuralı hataları (kilitli depo, bulunamayan ürün, yazma kapalı...) kullanıcıya 400 ve mesajla döner.
 app.Use(async (ctx, next) =>
 {
@@ -93,6 +96,7 @@ CariEkstre.Map(app);
 CekRaporu.Map(app);
 Stok.Map(app);
 EtiketBaskisi.Map(app);
+EtiketTasarimlari.Map(app);
 DepoSevk.Map(app);
 CekIslemleri.Map(app);
 Faturalar.Map(app);

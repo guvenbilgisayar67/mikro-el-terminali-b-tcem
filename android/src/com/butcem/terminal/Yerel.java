@@ -14,8 +14,9 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Cihazdaki veritabanı: çevrimdışı sayım için ürün listesi ve henüz merkeze gitmemiş okutmalar.
- * Okutmalar gönderilene kadar silinmez; uygulama kapansa, oturum düşse de cihazda kalır.
+ * Cihazdaki veritabanı: çevrimdışı çalışmak için ürün listesi (fiyat ve indirildiği andaki depo stoğuyla),
+ * henüz merkeze gitmemiş sayım okutmaları ve bekleyen işlemler (sevk, etiket basımı).
+ * Gönderilmemiş kayıtlar silinmez; uygulama kapansa, oturum düşse de cihazda kalır.
  */
 final class Yerel extends SQLiteOpenHelper {
     static final class Okutma {
@@ -27,9 +28,22 @@ final class Yerel extends SQLiteOpenHelper {
     }
 
     static final class Urun {
-        final String barkod, kod, ad, birim;
-        Urun(String barkod, String kod, String ad, String birim) { this.barkod = barkod; this.kod = kod; this.ad = ad; this.birim = birim; }
+        final String barkod, kod, ad, birim, fd;
+        final double fiyat;
+        final Double stok;     // listenin indirildiği andaki depo stoğu; bilinmiyorsa null
+        Urun(String barkod, String kod, String ad, String birim, double fiyat, String fd, Double stok) {
+            this.barkod = barkod; this.kod = kod; this.ad = ad; this.birim = birim; this.fiyat = fiyat; this.fd = fd; this.stok = stok;
+        }
     }
+
+    /** Bağlantı gelince gönderilecek işlem (sevk fişi, etiket basımı). */
+    static final class Bekleyen {
+        String id, tur, yol, govde, ozet, hata, sonuc;
+        long zaman;
+        int durum;      // 0 bekliyor, 1 gönderildi, 2 merkez kabul etmedi
+    }
+
+    static final int BEKLIYOR = 0, GONDERILDI = 1, REDDEDILDI = 2;
 
     private static Yerel tek;
 
@@ -38,31 +52,46 @@ final class Yerel extends SQLiteOpenHelper {
         return tek;
     }
 
-    private Yerel(Context c) { super(c, "butcem.db", null, 1); }
+    private Yerel(Context c) { super(c, "butcem.db", null, 2); }
 
     @Override public void onCreate(SQLiteDatabase db) {
         db.execSQL("CREATE TABLE urunler (barkod TEXT PRIMARY KEY, kod TEXT NOT NULL, ad TEXT NOT NULL, birim TEXT NOT NULL)");
         db.execSQL("CREATE TABLE okutmalar (id TEXT PRIMARY KEY, sayim_id INTEGER NOT NULL, depo INTEGER NOT NULL, barkod TEXT NOT NULL, "
                 + "kod TEXT NOT NULL, ad TEXT NOT NULL, birim TEXT NOT NULL, miktar REAL NOT NULL, zaman INTEGER NOT NULL, "
                 + "gonderildi INTEGER NOT NULL DEFAULT 0, hata TEXT)");
+        onUpgrade(db, 1, 2);
     }
 
-    @Override public void onUpgrade(SQLiteDatabase db, int eski, int yeni) { }
+    /** 1 → 2 (0.5.0): ürün listesine fiyat, fiyat değişim tarihi, stok; bekleyen işlemler tablosu. */
+    @Override public void onUpgrade(SQLiteDatabase db, int eski, int yeni) {
+        if (eski < 2) {
+            db.execSQL("ALTER TABLE urunler ADD COLUMN fiyat REAL NOT NULL DEFAULT 0");
+            db.execSQL("ALTER TABLE urunler ADD COLUMN fd TEXT NOT NULL DEFAULT ''");
+            db.execSQL("ALTER TABLE urunler ADD COLUMN stok REAL");
+            db.execSQL("CREATE INDEX ix_urunler_kod ON urunler (kod)");
+            db.execSQL("CREATE TABLE bekleyenler (id TEXT PRIMARY KEY, tur TEXT NOT NULL, yol TEXT NOT NULL, govde TEXT NOT NULL, "
+                    + "ozet TEXT NOT NULL, zaman INTEGER NOT NULL, durum INTEGER NOT NULL DEFAULT 0, hata TEXT, sonuc TEXT)");
+        }
+    }
 
-    /** Sunucudan gelen [barkod, kod, ad, birim] listesiyle ürünleri tamamen yeniler. */
+    /** Sunucudan gelen [barkod, kod, ad, birim, fiyat, fd, stok] listesiyle ürünleri tamamen yeniler. */
     int urunleriYaz(JSONArray a) {
         SQLiteDatabase db = getWritableDatabase();
         db.beginTransaction();
         try {
             db.delete("urunler", null, null);
-            SQLiteStatement st = db.compileStatement("INSERT OR REPLACE INTO urunler (barkod, kod, ad, birim) VALUES (?, ?, ?, ?)");
+            SQLiteStatement st = db.compileStatement("INSERT OR REPLACE INTO urunler (barkod, kod, ad, birim, fiyat, fd, stok) VALUES (?, ?, ?, ?, ?, ?, ?)");
             for (int i = 0; i < a.length(); i++) {
                 JSONArray u = a.optJSONArray(i);
                 if (u == null) continue;
+                st.clearBindings();
                 st.bindString(1, u.optString(0));
                 st.bindString(2, u.optString(1));
                 st.bindString(3, u.optString(2));
                 st.bindString(4, u.optString(3));
+                st.bindDouble(5, u.optDouble(4, 0));
+                st.bindString(6, u.isNull(5) ? "" : u.optString(5));
+                if (u.length() > 6 && !u.isNull(6)) st.bindDouble(7, u.optDouble(6, 0)); else st.bindNull(7);
                 st.executeInsert();
             }
             db.setTransactionSuccessful();
@@ -77,11 +106,74 @@ final class Yerel extends SQLiteOpenHelper {
         try { return c.moveToFirst() ? c.getInt(0) : 0; } finally { c.close(); }
     }
 
+    private static final String URUN_SUTUN = "SELECT barkod, kod, ad, birim, fiyat, fd, stok FROM urunler ";
+
+    private static Urun urunOku(Cursor c) {
+        return new Urun(c.getString(0), c.getString(1), c.getString(2), c.getString(3), c.getDouble(4), c.getString(5),
+                c.isNull(6) ? null : c.getDouble(6));
+    }
+
+    /** Barkod ya da stok kodu ile; barkodu tam tutan kayıt önce. */
     Urun urunBul(String barkod) {
-        Cursor c = getReadableDatabase().rawQuery("SELECT barkod, kod, ad, birim FROM urunler WHERE barkod = ? OR kod = ? LIMIT 1",
-                new String[]{barkod, barkod});
-        try { return c.moveToFirst() ? new Urun(c.getString(0), c.getString(1), c.getString(2), c.getString(3)) : null; }
+        Cursor c = getReadableDatabase().rawQuery(URUN_SUTUN + "WHERE barkod = ? OR kod = ? ORDER BY barkod = ? DESC LIMIT 1",
+                new String[]{barkod, barkod, barkod});
+        try { return c.moveToFirst() ? urunOku(c) : null; }
         finally { c.close(); }
+    }
+
+    /** Fiyat değişim tarihi verilen gün (yyyy-MM-dd) olan ürünler, ürün başına bir barkod. */
+    List<Urun> fiyatiDegisenler(String gun) {
+        List<Urun> l = new ArrayList<Urun>();
+        Cursor c = getReadableDatabase().rawQuery(URUN_SUTUN + "WHERE fd = ? GROUP BY kod ORDER BY ad", new String[]{gun});
+        try { while (c.moveToNext()) l.add(urunOku(c)); } finally { c.close(); }
+        return l;
+    }
+
+    // ---- bekleyen işlemler ----
+
+    Bekleyen bekleyenEkle(String tur, String yol, String govde, String ozet) {
+        Bekleyen b = new Bekleyen();
+        b.id = UUID.randomUUID().toString();
+        b.tur = tur; b.yol = yol; b.govde = govde; b.ozet = ozet; b.zaman = System.currentTimeMillis();
+        ContentValues v = new ContentValues();
+        v.put("id", b.id); v.put("tur", tur); v.put("yol", yol); v.put("govde", govde); v.put("ozet", ozet); v.put("zaman", b.zaman);
+        getWritableDatabase().insertOrThrow("bekleyenler", null, v);
+        return b;
+    }
+
+    /** Sadece bekleyenler (eskiden yeniye) ya da hepsi (yeniden eskiye, en fazla 50). */
+    List<Bekleyen> bekleyenler(boolean hepsi) {
+        List<Bekleyen> l = new ArrayList<Bekleyen>();
+        Cursor c = getReadableDatabase().rawQuery("SELECT id, tur, yol, govde, ozet, zaman, durum, hata, sonuc FROM bekleyenler "
+                + (hepsi ? "ORDER BY zaman DESC LIMIT 50" : "WHERE durum = 0 ORDER BY zaman"), null);
+        try {
+            while (c.moveToNext()) {
+                Bekleyen b = new Bekleyen();
+                b.id = c.getString(0); b.tur = c.getString(1); b.yol = c.getString(2); b.govde = c.getString(3); b.ozet = c.getString(4);
+                b.zaman = c.getLong(5); b.durum = c.getInt(6); b.hata = c.isNull(7) ? null : c.getString(7); b.sonuc = c.isNull(8) ? null : c.getString(8);
+                l.add(b);
+            }
+        } finally { c.close(); }
+        return l;
+    }
+
+    int bekleyenSayisi() {
+        Cursor c = getReadableDatabase().rawQuery("SELECT COUNT(*) FROM bekleyenler WHERE durum = 0", null);
+        try { return c.moveToFirst() ? c.getInt(0) : 0; } finally { c.close(); }
+    }
+
+    void bekleyenSonuc(String id, int durum, String metin) {
+        ContentValues v = new ContentValues();
+        v.put("durum", durum);
+        if (durum == GONDERILDI) { v.put("sonuc", metin); v.putNull("hata"); } else if (durum == REDDEDILDI) v.put("hata", metin);
+        getWritableDatabase().update("bekleyenler", v, "id = ?", new String[]{id});
+    }
+
+    void bekleyenSil(String id) { getWritableDatabase().delete("bekleyenler", "id = ?", new String[]{id}); }
+
+    /** Gönderilmiş ve reddedilmiş kayıtları siler; bekleyenlere dokunmaz. */
+    void bekleyenleriTemizle(long oncesi) {
+        getWritableDatabase().delete("bekleyenler", "durum <> 0 AND zaman < ?", new String[]{String.valueOf(oncesi)});
     }
 
     Okutma ekle(int sayimId, int depo, String barkod, String kod, String ad, String birim, double miktar) {

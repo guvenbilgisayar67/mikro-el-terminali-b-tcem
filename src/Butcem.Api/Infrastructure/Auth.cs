@@ -35,6 +35,7 @@ public static class Yetkiler
     public const string Sevk = "sevk";
     public const string FiyatDegisikligi = "fiyat_degisikligi";
     public const string Etiket = "etiket";
+    public const string EtiketTasarim = "etiket_tasarim";
     public const string Siparis = "siparis";
     public const string Sayim = "sayim";
     public const string SayimOnay = "sayim_onay";
@@ -52,6 +53,7 @@ public static class Yetkiler
         (Sevk, "Depolar arası sevk"),
         (FiyatDegisikligi, "Fiyat değişikliği"),
         (Etiket, "Etiket basma"),
+        (EtiketTasarim, "Etiket tasarımı"),
         (Siparis, "Sipariş (öneri, kayıt, gönderim)"),
         (Sayim, "Sayım yapma (terminal / bilgisayar)"),
         (SayimOnay, "Sayım düzeltme ve Mikro'ya onay"),

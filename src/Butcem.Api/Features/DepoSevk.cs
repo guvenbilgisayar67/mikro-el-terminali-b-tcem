@@ -50,12 +50,16 @@ public static class DepoSevk
             return Results.Ok(satirlar);
         });
 
-        g.MapPost("/", (Istek istek, ClaimsPrincipal user, MikroYazici yazici, IslemLogu log) =>
+        // Terminal çevrimdışıyken kaydettiği sevki bağlantı gelince X-Istemci-Id ile gönderir; tekrar gelirse ikinci fiş açılmaz.
+        g.MapPost("/", (Istek istek, HttpRequest req, ClaimsPrincipal user, MikroYazici yazici, Db db, IslemLogu log) =>
         {
             Dogrula(istek, user);
-            var sonuc = Kaydet(yazici, istek);
-            log.Yaz(user.Id(), "sevk", new { istek, sonuc });
-            return Results.Ok(sonuc);
+            return TekrarKoruma.Calistir(req, db, "sevk", user.Id(), () =>
+            {
+                var sonuc = Kaydet(yazici, istek);
+                log.Yaz(user.Id(), "sevk", new { istek, sonuc });
+                return sonuc;
+            });
         });
 
         g.MapGet("/", (DateTime? bas, DateTime? bit, int? depo, ClaimsPrincipal user, Db db) =>

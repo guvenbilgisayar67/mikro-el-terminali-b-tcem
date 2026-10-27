@@ -104,6 +104,8 @@ birincisi düşüldükten kalan tutara uygulanır (ör. 901,44 TL'ye %15 + %2 + 
 v0.3'ten yükseltirken fiyat değişikliği, v0.4'ten yükseltirken sipariş ve sayım için `sql/03_yazma_kullanicisi.sql`
 dosyasını bir kez daha çalıştırın (yalnız yeni tablo yetkilerini ekler). Sipariş için `sql/01_butcem_app.sql`
 de bir kez daha çalıştırılmalı (gönderim kaydı, tedarikçi iletişim ve sayım tablolarını ekler).
+v0.6'dan yükseltirken yalnız `sql/01_butcem_app.sql` bir kez daha çalıştırılır (etiket tasarımları ve terminalin
+bekleyen işlemleri için iki tablo ekler); Mikro tarafında yeni yetki gerekmez.
 
 Sevk maliyeti ürünün son alış fiyatıdır (iskontolar düşülmüş). Mikro bazı sevklerde farklı bir maliyet
 önerebiliyor; bu yalnız maliyet raporunu etkiler, stok miktarını ve cariyi etkilemez.
@@ -119,8 +121,8 @@ Kullanıcılar panelde **Yönetim → Kullanıcılar** bölümünden açılır (
 | Mağaza personeli | Yalnız işaretlenen ekranları kullanır, yalnız kendi deposunu görür ve yalnız kendi deposuna evrak girer. |
 
 Yetkiler ekran ekran işaretlenir: Günün cirosu, Satış raporu, Cari ekstre, Çek raporu, Çek girişi, Çek çıkışı,
-Alış irsaliyesi ve faturası, Satış faturası, Depolar arası sevk, Fiyat değişikliği, Etiket basma, Sipariş,
-Sayım yapma, Sayım düzeltme ve onay. Örneğin yalnız alış faturası
+Alış irsaliyesi ve faturası, Satış faturası, Depolar arası sevk, Fiyat değişikliği, Etiket basma, Etiket tasarımı,
+Sipariş, Sayım yapma, Sayım düzeltme ve onay. Örneğin yalnız alış faturası
 girecek muhasebe personeli için tip **Merkez personeli**, yetki yalnız **Alış irsaliyesi ve faturası** seçilir.
 Bu kişi menüde yalnız "Fatura ve irsaliye" ekranını, içinde de yalnız alış sekmelerini görür. Evrakta cari
 seçebilmesi için ayrıca cari ekstre yetkisi gerekmez.
@@ -194,6 +196,27 @@ onaylayın. Fiş tutarı son alış fiyatıdır (Mikro giriş fişinde de böyle
 önerir, bu yalnız maliyet raporunu etkiler, stok miktarını etkilemez). Seriler `Sayim:GirisSerisi` /
 `Sayim:CikisSerisi` ayarıyla değiştirilebilir (varsayılan SYMG / SYMC).
 
+### 2e. Etiket tasarımı
+
+Panelde **Etiket tasarımı** (yetki: *Etiket tasarımı*; yönetici her zaman). Etiket değişikliği için program
+değişikliği gerekmez:
+
+- Soldan tasarım seçilir. **Raf etiketi** (Orion RAFEAN13DIKEY dizaynı) ve **Manav etiketi** programla gelir;
+  değiştirip kaydedilince kayıtlı hali kullanılır, **İlk haline döndür** ile programdaki haline döner.
+  **Boş tasarım** ya da **Bunu kopyala** ile yeni tasarım (ör. kampanya, küçük raf, A4 indirim) eklenir.
+- Etiket ölçüsü (mm) üstte girilir. **+ Yazı**, **+ Ürün bilgisi** (ürün adı, fiyat, lira / kuruş ayrı, birim,
+  fiyat değişim tarihi, eski fiyat, menşei, barkod numarası, stok kodu, reyon, basım tarihi), **+ Barkod**,
+  **+ Çizgi**, **+ Çerçeve**, **+ Yerli üretim logosu** ile öğe eklenir.
+- Öğeler etiketin üstünde sürüklenir, sağ alt köşeden boyutlandırılır (oklar 0,5 mm, Shift+ok 5 mm taşır;
+  Delete siler; Ctrl+Z geri alır). Seçili öğenin yazısı, yazı boyu (mm), yazı tipi, kalınlık, hiza, satır sayısı,
+  büyük harf, siyah zemin beyaz yazı ayarları sağda değişir. Bir yazıya sabit metin ve ürün bilgisi birlikte
+  yazılabilir: `Menşei: {mensei}` gibi.
+- Görüntü yazıcıya gidecek resmin aynısıdır (sunucu çizer). Altındaki kutuya barkod yazılırsa o ürünle gösterilir.
+- Yazı kutuya sığmazsa küçülür. İçindeki ürün bilgilerinin hepsi boşsa (menşei girilmemiş, fiyat değişmemiş)
+  o öğe hiç basılmaz.
+- **Kullanımda** işareti kaldırılan tasarım terminalde ve Etiket ekranında listelenmez. **Sıra** listedeki sırasıdır.
+- Kaydedilen tasarım hemen kullanılır; terminal tasarım listesini açılışta ve menüdeki "Yazıcıları yenile" ile alır.
+
 ## 3. Mağaza bilgisayarı: yazdırma programı
 
 Her mağazada bir kez yapılır.
@@ -240,12 +263,29 @@ olarak doğru çıkar.
      (iData'nın varsayılanı), ya da
    - **Klavye (Keyboard) modu** ve "sonuna Enter ekle" açık.
 4. Kullanım: barkod okutulur → ürün adı, satış fiyatı, fiyat değişim tarihi, mağazaların stokları görünür.
-   **Listeye ekle** (ya da **Adet…**) ile etiket listesi oluşur; şablon (raf / manav) ve mağaza yazıcısı seçilip
-   **Bas** denir. Sağ üst menüde **Bugün fiyatı değişenleri ekle** ve **Depolar arası sevk** vardır.
+   **Listeye ekle** (ya da **Adet…**) ile etiket listesi oluşur; etiket tasarımı (panelde tasarlananlar) ve mağaza
+   yazıcısı seçilip **Bas** denir. Sağ üst menüde **Bugün fiyatı değişenleri ekle** ve **Depolar arası sevk** vardır.
 5. Sevk: menüden **Depolar arası sevk** açılır, çıkış deposu terminalin mağazasıdır. Gidecek depo seçilir,
    ürünler okutulur (her okutma 1 ekler, dokunarak miktar değişir), **Sevki kaydet** denir.
 6. Sayım: menüden **Sayım** (yetki: *Sayım yapma*). İlk açılışta ürün listesi cihaza iner (bağlantı gerekir).
-   Ayrıntı ve çevrimdışı çalışma: bölüm 2d. Sürüm 0.4.0 ile geldi; eski APK'nın üzerine kurulur, ayarlar silinmez.
+   Ayrıntı: bölüm 2d.
+7. **Bağlantı yokken (çevrimdışı) çalışma** (0.5.0): terminal ürün listesini satış fiyatı, fiyat değişim tarihi ve
+   kendi deposunun stoğuyla cihaza indirir (açılışta liste 6 saatten eskiyse kendiliğinden, menüden **Ürün listesini
+   güncelle** ile elle). Ekranın üstündeki satır bağlantıyı, bekleyen işlem sayısını ve listenin saatini gösterir;
+   dokununca **Bekleyen işlemler** açılır.
+   - **Fiyat sorgu:** okutulan ürün önce cihazdaki listeden hemen gösterilir, bağlantı varsa merkezden güncel fiyat
+     ve tüm depoların stoğu gelir. Bağlantı yoksa "Çevrimdışı: cihazdaki listeden (saat)" yazar.
+   - **Etiket:** liste çevrimdışı hazırlanır; **Bas** denince istek cihaza yazılır, bağlantı gelince yazıcı
+     kuyruğuna gider. Yazıcı ve tasarım listeleri son alınan haliyle seçilebilir. "Bugün fiyatı değişenleri ekle"
+     çevrimdışıyken cihazdaki listeye göre çalışır.
+   - **Sevk:** ürünler cihazdaki listeden bulunur; **Sevki kaydet** denince fiş cihaza yazılır, bağlantı gelince
+     Mikro'ya kaydedilir (fiş tarihi kaydedildiği gündür). Maliyet bilinmiyorsa kayıtta merkez hesaplar.
+   - **Sayım:** bölüm 2d; aynı ürün listesini kullanır.
+   - Bekleyen işlemler uygulama açıkken 20 saniyede bir gönderilir. Her işlemin kimliği vardır; cevap yolda
+     kaybolup tekrar gönderilse de merkezde **bir kez** yapılır (aynı sevk iki kez yazılmaz, etiket iki kez basılmaz).
+   - Merkez kabul etmezse (ör. depo kilitli) işlem "Kabul edilmedi" sebebiyle listede kalır; kaydı panelden
+     ya da terminalden yeniden girin. Oturum süresi dolarsa işlemler cihazda kalır, tekrar giriş yapınca gider.
+   - 0.5.0 eski APK'nın üzerine kurulur; ayarlar ve gönderilmemiş sayım okutmaları silinmez.
 
 APK'yı güncellemek için aynı imza anahtarı (`butcem.keystore`, şifresi `butcem123`) gerekir; bu dosyayı saklayın.
 Kaybolursa yeni sürüm kurmadan önce eskisini kaldırmak gerekir.
@@ -260,13 +300,14 @@ Kaybolursa yeni sürüm kurmadan önce eskisini kaldırmak gerekir.
 
 ## 6. Bilinen eksikler ve sıradaki işler
 
-- **Manav etiketi** şimdilik yer tutucu tasarımdır; tasarım dosyası gelince Orion'daki gibi yapılacak.
-  **A4 etiket** düzeni de tasarıma göre güncellenecek.
+- **Manav etiketi** ve **A4** için programla gelen tasarım yer tutucudur; panelin Etiket tasarımı ekranından
+  istediğiniz gibi değiştirilebilir (bölüm 2e). A4 yazıcıda etiketler seçilen tasarımın ölçüsünde sayfaya dizilir.
 - Merkez Orion'da şube Z raporları gecikmeli, Aktaş kasaları (11, 12) çoğunlukla eksik. Günün cirosu ekranı bu
   yüzden mağaza bazında "son güncelleme" saatini gösterir. Şube Orion veritabanlarına VPN'den erişilebiliyorsa
   kaynak olarak eklenmesi bunu çözer.
-- APK gerçek iData cihazında henüz denenmedi; ilk kurulumda okuyucu modunu kontrol edin. Sayım ekranının
-  çevrimdışı çalışması cihazda (Wi-Fi kapatılarak) denenmeli.
+- APK gerçek iData cihazında henüz denenmedi; ilk kurulumda okuyucu modunu kontrol edin. Fiyat sorgu, etiket,
+  sevk ve sayımın çevrimdışı çalışması cihazda (Wi-Fi kapatılarak) denenmeli.
+- Bekleyen işlemler terminal uygulaması açıkken gönderilir; uygulama kapalıyken arka planda gönderim yoktur.
 - Yazma özellikleri kopya veritabanında denendi; canlıda `Yazma:Acik` sizin onayınızla açılacak.
 - Satış irsaliyesi, iade faturaları, çeki bankaya tahsile verme ve senetler henüz yok.
 - Kopyadaki portföyde 2021-2024 vadeli, hâlâ ÇEK KASASI'nda görünen müşteri çekleri var; Mikro'da

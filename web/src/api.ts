@@ -67,6 +67,7 @@ export const api = {
   get: <T>(yol: string) => istek<T>("GET", yol),
   post: <T>(yol: string, govde: unknown) => istek<T>("POST", yol, govde),
   put: <T>(yol: string, govde: unknown) => istek<T>("PUT", yol, govde),
+  del: <T>(yol: string) => istek<T>("DELETE", yol),
 };
 
 export const qs = (p: Record<string, string | number | null | undefined>) =>

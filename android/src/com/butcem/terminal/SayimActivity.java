@@ -278,7 +278,8 @@ public class SayimActivity extends Activity {
                 cevrimici();
                 try {
                     JSONObject j = new JSONObject(govde).getJSONObject("urun");
-                    urunSec(new Yerel.Urun(kod, j.optString("stokKodu"), j.optString("urunAdi"), j.optString("birim")), kod);
+                    urunSec(new Yerel.Urun(kod, j.optString("stokKodu"), j.optString("urunAdi"), j.optString("birim"),
+                            j.optDouble("fiyat", 0), "", null), kod);
                     mesaj.setText("");
                 } catch (Exception e) { bulunamadi(kod); }
             }
@@ -505,23 +506,12 @@ public class SayimActivity extends Activity {
 
     private void urunleriIndir() {
         bilgi("Ürün listesi indiriliyor…");
-        api.get("/api/sayim/urunler", new Api.Sonuc() {
-            @Override public void tamam(final String govde) {
-                cevrimici();
-                new Thread(new Runnable() {
-                    @Override public void run() {
-                        String sonuc;
-                        try {
-                            int n = yerel.urunleriYaz(new JSONArray(govde));
-                            ayar.edit().putLong("urunlerZamani", System.currentTimeMillis()).apply();
-                            sonuc = "Ürün listesi güncellendi: " + n + " barkod.";
-                        } catch (Exception e) { sonuc = "Ürün listesi yazılamadı: " + e.getMessage(); }
-                        final String s = sonuc;
-                        runOnUiThread(new Runnable() { @Override public void run() { bilgi(s); listeyiGoster(); } });
-                    }
-                }).start();
+        Katalog.indir(this, new Katalog.Bitti() {
+            @Override public void sonuc(int durum, String m) {
+                if (durum == 200) { cevrimici(); bilgi(m); listeyiGoster(); }
+                else if (durum == -1) hataGoster(m);
+                else sonucHata(durum, m, true);
             }
-            @Override public void hata(int durum, String m) { sonucHata(durum, m, true); }
         });
     }
 

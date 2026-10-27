@@ -5,6 +5,7 @@ import Cek from "./sayfalar/Cek";
 import CekIslem from "./sayfalar/CekIslem";
 import Ciro from "./sayfalar/Ciro";
 import Etiket from "./sayfalar/Etiket";
+import EtiketTasarim from "./sayfalar/EtiketTasarim";
 import Fatura from "./sayfalar/Fatura";
 import Fiyat from "./sayfalar/Fiyat";
 import Giris from "./sayfalar/Giris";
@@ -14,7 +15,7 @@ import Sevk from "./sayfalar/Sevk";
 import Siparis from "./sayfalar/Siparis";
 import Yonetim from "./sayfalar/Yonetim";
 
-type Sayfa = "ciro" | "satis" | "cari" | "cek" | "cekislem" | "fatura" | "sevk" | "siparis" | "sayim" | "fiyat" | "etiket" | "yonetim";
+type Sayfa = "ciro" | "satis" | "cari" | "cek" | "cekislem" | "fatura" | "sevk" | "siparis" | "sayim" | "fiyat" | "etiket" | "etikettasarim" | "yonetim";
 // Her sayfa, listelenen yetkilerden birine sahip kullanıcıya görünür (admin hepsini görür).
 const SAYFALAR: { id: Sayfa; ad: string; yetki: string[] }[] = [
   { id: "ciro", ad: "Günün cirosu", yetki: ["ciro"] },
@@ -28,6 +29,7 @@ const SAYFALAR: { id: Sayfa; ad: string; yetki: string[] }[] = [
   { id: "sayim", ad: "Sayım", yetki: ["sayim", "sayim_onay"] },
   { id: "fiyat", ad: "Fiyat değişikliği", yetki: ["fiyat_degisikligi"] },
   { id: "etiket", ad: "Etiket", yetki: ["etiket"] },
+  { id: "etikettasarim", ad: "Etiket tasarımı", yetki: ["etiket_tasarim"] },
   { id: "yonetim", ad: "Yönetim", yetki: [] },
 ];
 
@@ -78,6 +80,7 @@ export default function App() {
         {aktif?.id === "sayim" && <Sayim oturum={oturum} depoNo={depoKilidi} />}
         {aktif?.id === "fiyat" && <Fiyat />}
         {aktif?.id === "etiket" && <Etiket />}
+        {aktif?.id === "etikettasarim" && <EtiketTasarim />}
         {aktif?.id === "yonetim" && <Yonetim />}
       </main>
     </div>

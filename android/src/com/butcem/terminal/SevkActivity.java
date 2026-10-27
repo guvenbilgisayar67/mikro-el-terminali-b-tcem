@@ -19,6 +19,7 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.Spinner;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -32,11 +33,13 @@ import java.util.Map;
 /**
  * Depolar arası sevk: kendi deponuzdan başka depoya gönderilecek ürünleri okutun, miktarları düzeltin, kaydedin.
  * Kayıt Mikro'da depolar arası sevk fişi olarak oluşur (seri: deponun serisi).
+ * Bağlantı yokken ürünler cihazdaki listeden bulunur, fiş cihazda bekler ve bağlantı gelince Mikro'ya gönderilir.
  */
-public class SevkActivity extends Activity {
+public class SevkActivity extends Activity implements Kuyruk.Dinleyici {
     private Api api;
+    private Yerel yerel;
     private EditText barkod;
-    private TextView mesaj, ozet;
+    private TextView durum, mesaj, ozet;
     private LinearLayout liste;
     private Spinner cikisSecim, girisSecim;
     private Button kaydetDugmesi;
@@ -46,9 +49,9 @@ public class SevkActivity extends Activity {
 
     private static final class Kalem {
         final String kod, ad, birim;
-        final double birimFiyat;
+        double birimFiyat = -1;     // bilinmiyorsa -1: maliyet kayıtta merkezde hesaplanır
         double miktar;
-        Kalem(String kod, String ad, String birim, double birimFiyat) { this.kod = kod; this.ad = ad; this.birim = birim; this.birimFiyat = birimFiyat; }
+        Kalem(String kod, String ad, String birim) { this.kod = kod; this.ad = ad; this.birim = birim; }
     }
 
     private final BroadcastReceiver tarayici = new BroadcastReceiver() {
@@ -64,11 +67,18 @@ public class SevkActivity extends Activity {
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         api = new Api(this);
+        yerel = Yerel.al(this);
         setTitle("Depolar arası sevk");
 
         LinearLayout l = Ui.dikey(this);
         int p = Ui.dp(this, 14);
         l.setPadding(p, p, p, p);
+
+        durum = Ui.yazi(this, "", 12, false);
+        durum.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { Kuyruk.goster(SevkActivity.this); }
+        });
+        l.addView(durum, Ui.genis(this, 0));
 
         l.addView(Ui.yazi(this, "Çıkış deposu", 13, false));
         cikisSecim = new Spinner(this);
@@ -130,69 +140,117 @@ public class SevkActivity extends Activity {
         f.addAction("com.android.server.scannerservice.broadcast");
         registerReceiver(tarayici, f);
         barkod.requestFocus();
+        Kuyruk.baslat(this, this);
+        durumGoster();
     }
 
     @Override protected void onPause() {
         super.onPause();
         unregisterReceiver(tarayici);
+        Kuyruk.durdur(this);
     }
 
+    @Override public void degisti(String bilgi) {
+        durumGoster();
+        if (bilgi != null) Toast.makeText(this, bilgi, Toast.LENGTH_LONG).show();
+    }
+
+    private void durumGoster() {
+        durum.setText(Kuyruk.durumMetni(this));
+        durum.setTextColor(Api.cevrimici ? Ui.SOLUK : Ui.HATA);
+    }
+
+    /** Depo listesi bağlantı yokken de seçilebilsin diye son hali saklanır. */
     private void depolariYukle() {
+        final android.content.SharedPreferences ayar = getSharedPreferences("butcem", MODE_PRIVATE);
         api.get("/api/depolar", new Api.Sonuc() {
             @Override public void tamam(String govde) {
-                try {
-                    JSONArray a = new JSONArray(govde);
-                    List<String> adlar = new ArrayList<String>();
-                    depoNolari.clear();
-                    int kendi = -1;
-                    for (int i = 0; i < a.length(); i++) {
-                        JSONObject d = a.getJSONObject(i);
-                        depoNolari.add(d.optInt("no"));
-                        adlar.add(d.optInt("no") + " · " + d.optString("ad").trim());
-                        if (d.optInt("no") == api.depoNo()) kendi = i;
-                    }
-                    ArrayAdapter<String> ad1 = new ArrayAdapter<String>(SevkActivity.this, android.R.layout.simple_spinner_dropdown_item, adlar);
-                    ArrayAdapter<String> ad2 = new ArrayAdapter<String>(SevkActivity.this, android.R.layout.simple_spinner_dropdown_item, adlar);
-                    cikisSecim.setAdapter(ad1);
-                    girisSecim.setAdapter(ad2);
-                    // Mağaza kullanıcısı yalnız kendi deposundan gönderir.
-                    if (kendi >= 0) { cikisSecim.setSelection(kendi); cikisSecim.setEnabled(false); girisSecim.setSelection(kendi == 0 ? 1 : 0); }
-                } catch (Exception e) {
-                    hataGoster("Depolar okunamadı: " + e.getMessage());
-                }
+                ayar.edit().putString("depolar", govde).apply();
+                depolariGoster(govde);
             }
-            @Override public void hata(int durum, String m) { hataGoster(m); }
+            @Override public void hata(int d, String m) {
+                durumGoster();
+                String eski = ayar.getString("depolar", null);
+                if (d == 0 && eski != null) depolariGoster(eski); else hataGoster(m);
+            }
         });
     }
 
+    private void depolariGoster(String govde) {
+        try {
+            JSONArray a = new JSONArray(govde);
+            List<String> adlar = new ArrayList<String>();
+            depoNolari.clear();
+            int kendi = -1;
+            for (int i = 0; i < a.length(); i++) {
+                JSONObject d = a.getJSONObject(i);
+                depoNolari.add(d.optInt("no"));
+                adlar.add(d.optInt("no") + " · " + d.optString("ad").trim());
+                if (d.optInt("no") == api.depoNo()) kendi = i;
+            }
+            ArrayAdapter<String> ad1 = new ArrayAdapter<String>(SevkActivity.this, android.R.layout.simple_spinner_dropdown_item, adlar);
+            ArrayAdapter<String> ad2 = new ArrayAdapter<String>(SevkActivity.this, android.R.layout.simple_spinner_dropdown_item, adlar);
+            cikisSecim.setAdapter(ad1);
+            girisSecim.setAdapter(ad2);
+            // Mağaza kullanıcısı yalnız kendi deposundan gönderir.
+            if (kendi >= 0) { cikisSecim.setSelection(kendi); cikisSecim.setEnabled(false); girisSecim.setSelection(kendi == 0 ? 1 : 0); }
+        } catch (Exception e) {
+            hataGoster("Depolar okunamadı: " + e.getMessage());
+        }
+    }
+
+    /** Ürün önce cihazdaki listede aranır (bağlantı gerekmez); maliyet fiyatı bağlantı varsa merkezden alınır. */
     private void okut(final String kod) {
         if (kod.length() == 0) return;
         barkod.setText("");
+        Yerel.Urun y = yerel.urunBul(kod);
+        if (y != null) {
+            Kalem x = ekle(y.kod, y.ad, y.birim);
+            if (x.birimFiyat < 0 && Api.cevrimici) fiyatAl(kod, x);
+            return;
+        }
         bilgi("Aranıyor…");
         api.get("/api/sevk/urun?k=" + kodla(kod), new Api.Sonuc() {
             @Override public void tamam(String govde) {
+                durumGoster();
                 try {
                     JSONObject u = new JSONObject(govde);
-                    String k = u.optString("kod");
-                    Kalem x = kalemler.get(k);
-                    if (x == null) {
-                        x = new Kalem(k, u.optString("ad"), u.optString("birim"), u.optDouble("birimFiyat", 0));
-                        kalemler.put(k, x);
-                    }
-                    x.miktar += 1;
-                    bilgi(Ui.miktar(x.miktar) + " × " + x.ad);
+                    Kalem x = ekle(u.optString("kod"), u.optString("ad"), u.optString("birim"));
+                    x.birimFiyat = u.optDouble("birimFiyat", -1);
                     listeyiGoster();
                 } catch (Exception e) {
                     hataGoster("Beklenmeyen cevap: " + e.getMessage());
                 }
             }
-            @Override public void hata(int durum, String m) { hataGoster(kod + ": " + m); }
+            @Override public void hata(int d, String m) {
+                durumGoster();
+                hataGoster(kod + ": " + (d == 0 ? "merkeze ulaşılamıyor ve ürün cihazdaki listede yok" : m));
+            }
+        });
+    }
+
+    private Kalem ekle(String kod, String ad, String birim) {
+        Kalem x = kalemler.get(kod);
+        if (x == null) { x = new Kalem(kod, ad, birim); kalemler.put(kod, x); }
+        x.miktar += 1;
+        bilgi(Ui.miktar(x.miktar) + " × " + x.ad);
+        listeyiGoster();
+        return x;
+    }
+
+    private void fiyatAl(String kod, final Kalem x) {
+        api.get("/api/sevk/urun?k=" + kodla(kod), new Api.Sonuc() {
+            @Override public void tamam(String govde) {
+                try { x.birimFiyat = new JSONObject(govde).optDouble("birimFiyat", -1); listeyiGoster(); } catch (Exception ignored) { }
+            }
+            @Override public void hata(int d, String m) { durumGoster(); }
         });
     }
 
     private void listeyiGoster() {
         liste.removeAllViews();
         double toplam = 0;
+        boolean bilinmeyen = false;
         for (final Kalem k : kalemler.values()) {
             TextView t = Ui.yazi(this, Ui.miktar(k.miktar) + " " + k.birim + "  ·  " + k.ad, 15, false);
             int p = Ui.dp(this, 8);
@@ -201,10 +259,10 @@ public class SevkActivity extends Activity {
                 @Override public void onClick(View v) { miktarSor(k); }
             });
             liste.addView(t);
-            toplam += k.miktar * k.birimFiyat;
+            if (k.birimFiyat < 0) bilinmeyen = true; else toplam += k.miktar * k.birimFiyat;
         }
         if (kalemler.isEmpty()) liste.addView(Ui.yazi(this, "Liste boş.", 14, false));
-        ozet.setText(kalemler.size() + " ürün · maliyet " + Ui.para(toplam) + " ₺");
+        ozet.setText(kalemler.size() + " ürün · maliyet " + Ui.para(toplam) + " ₺" + (bilinmeyen ? " (bazı ürünlerin maliyeti kayıtta hesaplanır)" : ""));
         kaydetDugmesi.setEnabled(!kalemler.isEmpty() && !kaydediliyor);
     }
 
@@ -246,11 +304,14 @@ public class SevkActivity extends Activity {
         try {
             JSONArray satirlar = new JSONArray();
             for (Kalem k : kalemler.values()) satirlar.put(new JSONObject().put("urun", k.kod).put("miktar", k.miktar));
-            JSONObject o = new JSONObject().put("cikisDepo", cikis).put("girisDepo", giris).put("satirlar", satirlar);
+            // Tarih cihazdan: çevrimdışı kaydedilen fiş ertesi gün gönderilse de kaydedildiği güne yazılır.
+            String tarih = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(new java.util.Date());
+            JSONObject o = new JSONObject().put("cikisDepo", cikis).put("girisDepo", giris).put("tarih", tarih).put("satirlar", satirlar);
+            final String ozetMetni = "Sevk " + cikis + " → " + giris + ", " + kalemler.size() + " ürün";
             kaydediliyor = true;
             listeyiGoster();
             bilgi("Kaydediliyor…");
-            api.post("/api/sevk", o, new Api.Sonuc() {
+            Kuyruk.isle(this, "sevk", "/api/sevk", o, ozetMetni, new Api.Sonuc() {
                 @Override public void tamam(String govde) {
                     kaydediliyor = false;
                     try {
@@ -260,8 +321,15 @@ public class SevkActivity extends Activity {
                         bilgi("Kaydedildi: sevk fişi " + r.optString("seri") + " " + r.optInt("sira") + ", " + r.optInt("satirSayisi") + " satır.");
                     } catch (Exception e) { hataGoster(e.getMessage()); }
                 }
-                @Override public void hata(int durum, String m) {
+                @Override public void hata(int d, String m) {
                     kaydediliyor = false;
+                    if (Kuyruk.tekrarDenenir(d)) {
+                        kalemler.clear();
+                        listeyiGoster();
+                        bilgi("Merkeze ulaşılamadı. Sevk cihazda kaydedildi; bağlantı gelince Mikro'ya gönderilecek. "
+                                + "Durumu üstteki satıra dokunarak görebilirsiniz.");
+                        return;
+                    }
                     listeyiGoster();
                     hataGoster("Kaydedilemedi: " + m);
                 }

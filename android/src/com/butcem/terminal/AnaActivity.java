@@ -37,23 +37,28 @@ import java.util.Map;
 
 /**
  * Barkod okut → ürün adı, satış fiyatı, fiyat değişim tarihi ve mağaza stokları.
- * "Listeye ekle" ile etiket listesi oluşur; seçilen mağaza yazıcısına raf / manav / A4 etiket basılır.
+ * "Listeye ekle" ile etiket listesi oluşur; seçilen mağaza yazıcısına panelde tasarlanan etiketlerle basılır.
  * Okuyucu iki şekilde çalışır: klavye modu (okutunca alana yazar + Enter) ya da iData yayın (broadcast) modu.
+ * Bağlantı yokken ürün cihazdaki listeden gösterilir, basım isteği cihazda bekler ve bağlantı gelince gönderilir.
  */
-public class AnaActivity extends Activity {
+public class AnaActivity extends Activity implements Kuyruk.Dinleyici {
     private static final String[] TARAYICI_YAYINLARI = {
             "android.intent.action.SCANRESULT",              // iData varsayılanı, ek: "value"
             "com.android.server.scannerservice.broadcast",   // eski iData / Urovo, ek: "scannerdata"
     };
 
     private Api api;
+    private Yerel yerel;
+    private int sorguNo;
     private EditText barkod;
-    private TextView urunAdi, fiyat, ayrinti, stoklar, liste, mesaj;
+    private TextView durum, urunAdi, fiyat, ayrinti, stoklar, liste, mesaj;
     private Spinner yaziciSecim, sablonSecim;
     private Button basDugmesi;
     private JSONObject sonUrun;
     private final Map<String, Kalem> kalemler = new LinkedHashMap<String, Kalem>();
     private final List<Integer> yaziciIdleri = new ArrayList<Integer>();
+    private final List<String> yaziciAdlari = new ArrayList<String>();
+    private final List<String> sablonKodlari = new ArrayList<String>();
 
     private static final class Kalem {
         final String barkod, ad;
@@ -76,11 +81,18 @@ public class AnaActivity extends Activity {
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         api = new Api(this);
+        yerel = Yerel.al(this);
         setTitle("Bütçem · " + api.adSoyad());
 
         LinearLayout l = Ui.dikey(this);
         int p = Ui.dp(this, 14);
         l.setPadding(p, p, p, p);
+
+        durum = Ui.yazi(this, "", 12, false);
+        durum.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { Kuyruk.goster(AnaActivity.this); }
+        });
+        l.addView(durum, Ui.genis(this, 0));
 
         LinearLayout satir = Ui.yatay(this);
         barkod = new EditText(this);
@@ -146,8 +158,6 @@ public class AnaActivity extends Activity {
         etiketBolumu.addView(liste, Ui.genis(this, 4));
 
         sablonSecim = new Spinner(this);
-        sablonSecim.setAdapter(new ArrayAdapter<String>(this, android.R.layout.simple_spinner_dropdown_item,
-                new String[]{"Raf etiketi", "Manav etiketi"}));
         etiketBolumu.addView(sablonSecim, Ui.genis(this, 8));
 
         yaziciSecim = new Spinner(this);
@@ -174,6 +184,7 @@ public class AnaActivity extends Activity {
 
         listeyiGoster();
         yetkileriUygula();
+        if (Katalog.eski(this)) urunleriIndir(false);
         // Yetkiler panelden değişmiş olabilir; güncelini al.
         api.get("/api/ben", new Api.Sonuc() {
             @Override public void tamam(String govde) {
@@ -188,7 +199,7 @@ public class AnaActivity extends Activity {
     private void yetkileriUygula() {
         boolean etiket = api.yetkili("etiket");
         etiketBolumu.setVisibility(etiket ? View.VISIBLE : View.GONE);
-        if (etiket && yaziciSecim.getAdapter() == null) yazicilariYukle();
+        if (etiket && yaziciSecim.getAdapter() == null) { yazicilariYukle(); sablonlariYukle(); }
         invalidateOptionsMenu();
     }
 
@@ -198,11 +209,24 @@ public class AnaActivity extends Activity {
         for (String a : TARAYICI_YAYINLARI) f.addAction(a);
         registerReceiver(tarayici, f);
         barkod.requestFocus();
+        Kuyruk.baslat(this, this);
+        durumGoster();
     }
 
     @Override protected void onPause() {
         super.onPause();
         unregisterReceiver(tarayici);
+        Kuyruk.durdur(this);
+    }
+
+    @Override public void degisti(String bilgi) {
+        durumGoster();
+        if (bilgi != null) Toast.makeText(this, bilgi, Toast.LENGTH_LONG).show();
+    }
+
+    private void durumGoster() {
+        durum.setText(Kuyruk.durumMetni(this));
+        durum.setTextColor(Api.cevrimici ? Ui.SOLUK : Ui.HATA);
     }
 
     @Override public boolean onCreateOptionsMenu(Menu m) {
@@ -212,13 +236,17 @@ public class AnaActivity extends Activity {
         }
         if (api.yetkili("sevk")) m.add(0, 4, 0, "Depolar arası sevk");
         if (api.yetkili("sayim")) m.add(0, 5, 0, "Sayım");
+        m.add(0, 6, 0, "Bekleyen işlemler");
+        m.add(0, 7, 0, "Ürün listesini güncelle");
         m.add(0, 3, 0, "Çıkış");
         return true;
     }
 
     @Override public boolean onOptionsItemSelected(MenuItem i) {
         if (i.getItemId() == 1) degisenleriEkle();
-        else if (i.getItemId() == 2) yazicilariYukle();
+        else if (i.getItemId() == 2) { yazicilariYukle(); sablonlariYukle(); }
+        else if (i.getItemId() == 6) Kuyruk.goster(this);
+        else if (i.getItemId() == 7) urunleriIndir(true);
         else if (i.getItemId() == 4) startActivity(new Intent(this, SevkActivity.class));
         else if (i.getItemId() == 5) startActivity(new Intent(this, SayimActivity.class));
         else if (i.getItemId() == 3) {
@@ -229,13 +257,24 @@ public class AnaActivity extends Activity {
         return true;
     }
 
+    /** Önce cihazdaki listeden hemen gösterir, sonra merkezden güncel fiyat ve tüm depoların stoğunu alır. */
     private void sorgula(final String kod) {
         if (kod.length() == 0) return;
         barkod.setText("");
-        mesaj.setText("Sorgulanıyor…");
-        mesaj.setTextColor(Ui.SOLUK);
+        final int no = ++sorguNo;
+        final Yerel.Urun y = yerel.urunBul(kod);
+        if (y != null) {
+            urunGoster(yereldenJson(y), null);
+            stoklar.setText(y.stok == null ? "" : "▶ Bu depo: " + Ui.miktar(y.stok) + "  (liste " + Kuyruk.tarih(Katalog.zaman(this)) + ")");
+            mesaj.setText("");
+        } else {
+            mesaj.setText("Sorgulanıyor…");
+            mesaj.setTextColor(Ui.SOLUK);
+        }
         api.get("/api/stok/" + kodla(kod), new Api.Sonuc() {
             @Override public void tamam(String govde) {
+                durumGoster();
+                if (no != sorguNo) return;
                 try {
                     JSONObject j = new JSONObject(govde);
                     urunGoster(j.getJSONObject("urun"), j.optJSONArray("miktarlar"));
@@ -245,15 +284,32 @@ public class AnaActivity extends Activity {
                 }
             }
             @Override public void hata(int durum, String m) {
+                durumGoster();
+                if (no != sorguNo) return;
+                if (durum == 0 && y != null) {
+                    mesaj.setTextColor(Ui.SOLUK);
+                    mesaj.setText("Çevrimdışı: fiyat ve stok cihazdaki listeden (" + Kuyruk.tarih(Katalog.zaman(AnaActivity.this)) + ").");
+                    return;
+                }
                 sonUrun = null;
                 urunAdi.setText("");
                 fiyat.setText("");
                 ayrinti.setText("");
                 stoklar.setText("");
-                hataGoster(durum == 404 ? kod + ": ürün bulunamadı" : m);
+                hataGoster(durum == 404 ? kod + ": ürün bulunamadı"
+                        : durum == 0 ? kod + ": merkeze ulaşılamıyor ve ürün cihazdaki listede yok" : m);
                 if (durum == 401) oturumBitti();
             }
         });
+    }
+
+    private static JSONObject yereldenJson(Yerel.Urun y) {
+        JSONObject o = new JSONObject();
+        try {
+            o.put("urunAdi", y.ad).put("barkod", y.barkod).put("birim", y.birim).put("fiyat", y.fiyat)
+                    .put("fiyatDegisimTarihi", y.fd.length() == 0 ? JSONObject.NULL : y.fd);
+        } catch (Exception ignored) { }
+        return o;
     }
 
     private void urunGoster(JSONObject u, JSONArray miktarlar) {
@@ -344,35 +400,104 @@ public class AnaActivity extends Activity {
                     hataGoster("Beklenmeyen cevap: " + e.getMessage());
                 }
             }
-            @Override public void hata(int durum, String m) { hataGoster(m); }
+            @Override public void hata(int durum, String m) {
+                durumGoster();
+                if (durum != 0) { hataGoster(m); return; }
+                // Çevrimdışı: listenin indirildiği ana kadar bugün fiyatı değişenler.
+                List<Yerel.Urun> l = yerel.fiyatiDegisenler(new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new java.util.Date()));
+                for (Yerel.Urun y : l) if (!kalemler.containsKey(y.barkod)) kalemEkle(y.barkod, y.ad, 1);
+                listeyiGoster();
+                bilgi("Çevrimdışı: cihazdaki listeye göre bugün fiyatı değişen " + l.size() + " ürün eklendi ("
+                        + Kuyruk.tarih(Katalog.zaman(AnaActivity.this)) + " itibarıyla).");
+            }
         });
     }
 
+    /** Yazıcı ve tasarım listeleri bağlantı yokken de seçilebilsin diye son hali saklanır. */
     private void yazicilariYukle() {
         api.get("/api/etiket/yazicilar", new Api.Sonuc() {
             @Override public void tamam(String govde) {
-                try {
-                    JSONArray y = new JSONArray(govde);
-                    List<String> adlar = new ArrayList<String>();
-                    yaziciIdleri.clear();
-                    int secili = 0;
-                    for (int i = 0; i < y.length(); i++) {
-                        JSONObject o = y.getJSONObject(i);
-                        yaziciIdleri.add(o.getInt("id"));
-                        adlar.add(o.optString("ad") + ("a4".equals(o.optString("tur")) ? " (A4)" : ""));
-                        if (o.getInt("id") == api.sonYazici()) secili = i;
-                    }
-                    if (adlar.isEmpty()) adlar.add("Bu mağazada tanımlı yazıcı yok");
-                    yaziciSecim.setAdapter(new ArrayAdapter<String>(AnaActivity.this,
-                            android.R.layout.simple_spinner_dropdown_item, adlar));
-                    yaziciSecim.setSelection(secili);
-                } catch (Exception e) {
-                    hataGoster("Yazıcı listesi okunamadı: " + e.getMessage());
-                }
+                saklananlar().edit().putString("yazicilar", govde).apply();
+                yazicilariGoster(govde);
             }
             @Override public void hata(int durum, String m) {
+                String eski = saklananlar().getString("yazicilar", null);
+                if (durum == 0 && eski != null) { yazicilariGoster(eski); return; }
                 hataGoster("Yazıcılar alınamadı: " + m);
                 if (durum == 401) oturumBitti();
+            }
+        });
+    }
+
+    private void yazicilariGoster(String json) {
+        try {
+            JSONArray y = new JSONArray(json);
+            List<String> adlar = new ArrayList<String>();
+            yaziciIdleri.clear();
+            yaziciAdlari.clear();
+            int secili = 0;
+            for (int i = 0; i < y.length(); i++) {
+                JSONObject o = y.getJSONObject(i);
+                yaziciIdleri.add(o.getInt("id"));
+                yaziciAdlari.add(o.optString("ad"));
+                adlar.add(o.optString("ad") + ("a4".equals(o.optString("tur")) ? " (A4)" : ""));
+                if (o.getInt("id") == api.sonYazici()) secili = i;
+            }
+            if (adlar.isEmpty()) adlar.add("Bu mağazada tanımlı yazıcı yok");
+            yaziciSecim.setAdapter(new ArrayAdapter<String>(this, android.R.layout.simple_spinner_dropdown_item, adlar));
+            yaziciSecim.setSelection(secili);
+        } catch (Exception e) {
+            hataGoster("Yazıcı listesi okunamadı: " + e.getMessage());
+        }
+    }
+
+    /** Panelin Etiket tasarımı ekranında kullanıma açık tasarımlar. */
+    private void sablonlariYukle() {
+        api.get("/api/etiket/sablonlar", new Api.Sonuc() {
+            @Override public void tamam(String govde) {
+                saklananlar().edit().putString("sablonlar", govde).apply();
+                sablonlariGoster(govde);
+            }
+            @Override public void hata(int durum, String m) {
+                sablonlariGoster(saklananlar().getString("sablonlar", "[{\"kod\":\"raf\",\"ad\":\"Raf etiketi\"},{\"kod\":\"manav\",\"ad\":\"Manav etiketi\"}]"));
+            }
+        });
+    }
+
+    private void sablonlariGoster(String json) {
+        try {
+            JSONArray a = new JSONArray(json);
+            String onceki = sablonKodu();
+            List<String> adlar = new ArrayList<String>();
+            sablonKodlari.clear();
+            int secili = 0;
+            for (int i = 0; i < a.length(); i++) {
+                JSONObject o = a.getJSONObject(i);
+                sablonKodlari.add(o.optString("kod"));
+                adlar.add(o.optString("ad"));
+                if (o.optString("kod").equals(onceki)) secili = i;
+            }
+            sablonSecim.setAdapter(new ArrayAdapter<String>(this, android.R.layout.simple_spinner_dropdown_item, adlar));
+            sablonSecim.setSelection(secili);
+        } catch (Exception e) {
+            hataGoster("Etiket tasarımları okunamadı: " + e.getMessage());
+        }
+    }
+
+    private String sablonKodu() {
+        int i = sablonSecim.getSelectedItemPosition();
+        return i >= 0 && i < sablonKodlari.size() ? sablonKodlari.get(i) : "raf";
+    }
+
+    private android.content.SharedPreferences saklananlar() { return getSharedPreferences("butcem", MODE_PRIVATE); }
+
+    private void urunleriIndir(final boolean elle) {
+        if (elle) bilgi("Ürün listesi indiriliyor…");
+        durum.setText("Ürün listesi indiriliyor…");
+        Katalog.indir(this, new Katalog.Bitti() {
+            @Override public void sonuc(int d, String m) {
+                durumGoster();
+                if (elle || d == -1) { if (d == 200) bilgi(m); else hataGoster(m); }
             }
         });
     }
@@ -384,12 +509,14 @@ public class AnaActivity extends Activity {
         try {
             JSONObject g = new JSONObject();
             g.put("yaziciId", yaziciId);
-            g.put("sablon", sablonSecim.getSelectedItemPosition() == 1 ? "manav" : "raf");
+            g.put("sablon", sablonKodu());
             JSONArray k = new JSONArray();
-            for (Kalem x : kalemler.values()) k.put(new JSONObject().put("barkod", x.barkod).put("adet", x.adet));
+            int toplam = 0;
+            for (Kalem x : kalemler.values()) { k.put(new JSONObject().put("barkod", x.barkod).put("adet", x.adet)); toplam += x.adet; }
             g.put("kalemler", k);
+            final String ozet = toplam + " etiket (" + sablonSecim.getSelectedItem() + ", " + yaziciAdlari.get(i) + ")";
             basDugmesi.setEnabled(false);
-            api.post("/api/etiket/bas", g, new Api.Sonuc() {
+            Kuyruk.isle(this, "etiket", "/api/etiket/bas", g, ozet, new Api.Sonuc() {
                 @Override public void tamam(String govde) {
                     api.yaziciKaydet(yaziciId);
                     int basilacak = 0;
@@ -406,9 +533,17 @@ public class AnaActivity extends Activity {
                     Toast.makeText(AnaActivity.this, "Gönderildi", Toast.LENGTH_SHORT).show();
                 }
                 @Override public void hata(int durum, String m) {
+                    if (Kuyruk.tekrarDenenir(durum)) {
+                        // İstek cihazda; bağlantı (ya da yeniden giriş) olunca gönderilir.
+                        api.yaziciKaydet(yaziciId);
+                        kalemler.clear();
+                        listeyiGoster();
+                        bilgi("Merkeze ulaşılamadı. " + ozet + " cihazda bekliyor; bağlantı gelince basılacak.");
+                        if (durum == 401) oturumBitti();
+                        return;
+                    }
                     basDugmesi.setEnabled(true);
                     hataGoster(m);
-                    if (durum == 401) oturumBitti();
                 }
             });
         } catch (Exception e) {

@@ -169,6 +169,32 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UX_SayimGirisleri_Istemc
     CREATE UNIQUE INDEX UX_SayimGirisleri_Istemci ON dbo.SayimGirisleri (IstemciId) WHERE IstemciId IS NOT NULL;
 GO
 
+/* v0.7: terminal çevrimdışıyken biriktirip sonra gönderdiği işlemler (sevk, etiket). Aynı işlem iki kez gelirse
+   ikinci kez yapılmaz, ilk sonucun aynısı döner. Sonuc NULL: işleniyor. */
+IF OBJECT_ID(N'dbo.IstemciIslemleri') IS NULL
+CREATE TABLE dbo.IstemciIslemleri (
+    IstemciId   uniqueidentifier NOT NULL PRIMARY KEY,
+    Islem       nvarchar(20) NOT NULL,             -- sevk, etiket
+    KullaniciId int NULL,
+    Sonuc       nvarchar(max) NULL,                -- JSON
+    Zaman       datetime2 NOT NULL DEFAULT SYSDATETIME(),
+    BitisZamani datetime2 NULL
+);
+GO
+
+/* v0.7: panelden düzenlenen etiket tasarımları. Kayıt yoksa programın içindeki raf ve manav tasarımı kullanılır. */
+IF OBJECT_ID(N'dbo.EtiketSablonlari') IS NULL
+CREATE TABLE dbo.EtiketSablonlari (
+    Kod              nvarchar(20) NOT NULL PRIMARY KEY,   -- EtiketIsleri.Sablon
+    Ad               nvarchar(60) NOT NULL,
+    Tasarim          nvarchar(max) NOT NULL,              -- JSON: ölçü ve öğeler (mm)
+    Aktif            bit NOT NULL DEFAULT 1,              -- pasif tasarım terminalde ve basım ekranında görünmez
+    Sira             int NOT NULL DEFAULT 0,
+    GuncelleyenId    int NULL,
+    GuncellemeZamani datetime2 NOT NULL DEFAULT SYSDATETIME()
+);
+GO
+
 /* İlk yönetici. Şifre: Butcem2026!  — ilk girişten sonra değiştirin. */
 IF NOT EXISTS (SELECT 1 FROM dbo.Kullanicilar WHERE KullaniciAdi = N'admin')
 INSERT INTO dbo.Kullanicilar (KullaniciAdi, SifreHash, AdSoyad, Rol)

@@ -20,6 +20,7 @@ public static class EtiketBaskisi
     public sealed record Is(long Id, string Yazici, string Sablon, int Adet, int Durum, string? Hata,
                             DateTime OlusturmaZamani, DateTime? BitisZamani, string Olusturan);
 
+    public sealed record BasmaSonucu(List<long> Isler, int Basilacak, List<string> Bulunamayan);
     public sealed record AjanIsi(long Id, string WindowsYaziciAdi, string Dil, string Icerik);
     public sealed record AjanSonucu(bool Basarili, string? Hata);
     public sealed record AjanKaydi(string Ad, int DepoNo);
@@ -31,12 +32,22 @@ public static class EtiketBaskisi
 
         g.MapGet("/onizleme", (string barkod, string? sablon, Db db, EtiketCizici cizici, IConfiguration cfg) =>
         {
+            var ayar = EtiketAyarlari.Oku(cfg);
+            using var app = db.App();
+            var t = EtiketSablonlari.Bul(app, ayar, sablon);
+            if (t is null) return Results.NotFound($"Etiket tasarımı bulunamadı: {sablon}");
             using var conn = db.Mikro();
             var u = Stok.BarkodBul(conn, barkod);
             if (u is null) return Results.NotFound($"Barkod bulunamadı: {barkod}");
-            using var bmp = cizici.Ciz(u, SablonCoz(sablon), Ayarlar(cfg) with { Dondur90 = false });
-            using var img = SKImage.FromBitmap(bmp);
-            return Results.File(img.Encode(SKEncodedImageFormat.Png, 90).ToArray(), "image/png");
+            return Png(cizici, u, t.Tasarim, ayar);
+        });
+
+        // Basım ekranı ve terminal için etkin tasarımlar (öğeleri olmadan).
+        g.MapGet("/sablonlar", (Db db, IConfiguration cfg) =>
+        {
+            using var app = db.App();
+            return Results.Ok(EtiketSablonlari.Hepsi(app, EtiketAyarlari.Oku(cfg)).Where(s => s.Aktif)
+                .Select(s => new { s.Kod, s.Ad, s.Tasarim.GenislikMm, s.Tasarim.YukseklikMm }));
         });
 
         // Toplu etiket: belirli gün fiyatı değişen ürünler (Mikro fiyat değişiklik fişleri).
@@ -63,7 +74,7 @@ public static class EtiketBaskisi
                 """, new { depo = user.MagazaKullanicisi() ? user.Depo() : null }));
         });
 
-        g.MapPost("/bas", (BasmaIstegi istek, ClaimsPrincipal user, Db db, EtiketCizici cizici, IConfiguration cfg, IslemLogu log) =>
+        g.MapPost("/bas", (BasmaIstegi istek, HttpRequest req, ClaimsPrincipal user, Db db, EtiketCizici cizici, IConfiguration cfg, IslemLogu log) =>
         {
             if (istek.Kalemler.Count == 0) return Results.BadRequest("En az bir ürün seçin.");
             if (istek.Kalemler.Any(k => k.Adet is < 1 or > 500)) return Results.BadRequest("Adet 1 ile 500 arasında olmalı.");
@@ -78,8 +89,10 @@ public static class EtiketBaskisi
             if (user.MagazaKullanicisi() && user.Depo() != yazici.DepoNo)
                 return Results.Forbid();
 
-            var sablon = SablonCoz(istek.Sablon);
-            var ayar = Ayarlar(cfg);
+            var ayar = EtiketAyarlari.Oku(cfg);
+            var sablon = EtiketSablonlari.Bul(app, ayar, istek.Sablon);
+            if (sablon is null) return Results.BadRequest($"Etiket tasarımı bulunamadı: {istek.Sablon}");
+            var tasarim = sablon.Tasarim;
             using var mikro = db.Mikro();
             var bulunamayan = new List<string>();
             var urunler = new List<(Stok.Urun U, int Adet)>();
@@ -90,31 +103,35 @@ public static class EtiketBaskisi
             }
             if (urunler.Count == 0) return Results.BadRequest(new { hata = "Hiçbir barkod bulunamadı.", bulunamayan });
 
-            var isler = new List<long>();
-            if (yazici.Dil == "PDF")
+            // Terminal çevrimdışıyken biriktirdiği basım isteği iki kez gelirse etiketler bir kez basılır.
+            return TekrarKoruma.Calistir(req, db, "etiket", user.Id(), () =>
             {
-                // A4: tüm etiketler tek iş, sayfa sayfa PNG (zip içinde).
-                var resimler = urunler.SelectMany(x => Enumerable.Repeat(x.U, x.Adet))
-                    .Select(u => cizici.Ciz(u, sablon, ayar with { Dondur90 = false })).ToList();
-                var sayfalar = YaziciKomutlari.A4Sayfalari(resimler, ayar.GenislikMm, ayar.YukseklikMm);
-                resimler.ForEach(r => r.Dispose());
-                isler.Add(IsEkle(app, yazici.Id, istek.Sablon, resimler.Count, Zip(sayfalar), user.Id()));
-            }
-            else
-            {
-                foreach (var (u, adet) in urunler)
+                var isler = new List<long>();
+                if (yazici.Dil == "PDF")
                 {
-                    using var bmp = cizici.Ciz(u, sablon, ayar);
-                    var icerik = yazici.Dil == "EPL"
-                        ? YaziciKomutlari.Epl(bmp, boslukNokta: 16, adet)
-                        : YaziciKomutlari.Tspl(bmp, ayar.Dondur90 ? ayar.YukseklikMm : ayar.GenislikMm,
-                                               ayar.Dondur90 ? ayar.GenislikMm : ayar.YukseklikMm, adet);
-                    isler.Add(IsEkle(app, yazici.Id, istek.Sablon, adet, icerik, user.Id()));
+                    // A4: tüm etiketler tek iş, sayfa sayfa PNG (zip içinde).
+                    var resimler = urunler.SelectMany(x => Enumerable.Repeat(x.U, x.Adet))
+                        .Select(u => cizici.Ciz(u, tasarim, ayar.NoktaPerMm, false)).ToList();
+                    var sayfalar = YaziciKomutlari.A4Sayfalari(resimler, tasarim.GenislikMm, tasarim.YukseklikMm);
+                    resimler.ForEach(r => r.Dispose());
+                    isler.Add(IsEkle(app, yazici.Id, sablon.Kod, resimler.Count, Zip(sayfalar), user.Id()));
                 }
-            }
+                else
+                {
+                    foreach (var (u, adet) in urunler)
+                    {
+                        using var bmp = cizici.Ciz(u, tasarim, ayar.NoktaPerMm, ayar.Dondur90);
+                        var icerik = yazici.Dil == "EPL"
+                            ? YaziciKomutlari.Epl(bmp, boslukNokta: 16, adet)
+                            : YaziciKomutlari.Tspl(bmp, ayar.Dondur90 ? tasarim.YukseklikMm : tasarim.GenislikMm,
+                                                   ayar.Dondur90 ? tasarim.GenislikMm : tasarim.YukseklikMm, adet);
+                        isler.Add(IsEkle(app, yazici.Id, sablon.Kod, adet, icerik, user.Id()));
+                    }
+                }
 
-            log.Yaz(user.Id(), "etiket", new { istek.YaziciId, istek.Sablon, adet = urunler.Sum(x => x.Adet), bulunamayan });
-            return Results.Ok(new { isler, basilacak = urunler.Sum(x => x.Adet), bulunamayan });
+                log.Yaz(user.Id(), "etiket", new { istek.YaziciId, istek.Sablon, adet = urunler.Sum(x => x.Adet), bulunamayan });
+                return new BasmaSonucu(isler, urunler.Sum(x => x.Adet), bulunamayan);
+            });
         });
 
         g.MapGet("/isler", (int? ilk, ClaimsPrincipal user, Db db) =>
@@ -214,11 +231,12 @@ public static class EtiketBaskisi
         return kayit.Id != 0 && BCrypt.Net.BCrypt.Verify(anahtar, kayit.AnahtarHash) ? kayit.Id : null;
     }
 
-    private static EtiketSablonu SablonCoz(string? s) =>
-        string.Equals(s, "manav", StringComparison.OrdinalIgnoreCase) ? EtiketSablonu.Manav : EtiketSablonu.Raf;
-
-    private static EtiketAyarlari Ayarlar(IConfiguration cfg) =>
-        cfg.GetSection("Etiket").Get<EtiketAyarlari>() ?? new EtiketAyarlari();
+    internal static IResult Png(EtiketCizici cizici, Stok.Urun u, EtiketTasarimi t, EtiketAyarlari ayar)
+    {
+        using var bmp = cizici.Ciz(u, t, ayar.NoktaPerMm, false);
+        using var img = SKImage.FromBitmap(bmp);
+        return Results.File(img.Encode(SKEncodedImageFormat.Png, 90).ToArray(), "image/png");
+    }
 
     private static byte[] Zip(IReadOnlyList<byte[]> sayfalar)
     {

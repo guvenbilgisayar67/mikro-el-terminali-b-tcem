@@ -87,6 +87,56 @@ public static class Stok
         .RequireAuthorization(Roller.Herkes)
         .WithTags("Stok");
 
+        // Terminalin cihazda tuttuğu ürün listesi (çevrimdışı fiyat sorgu, etiket, sevk, sayım):
+        // [barkod, stok kodu, ad, birim, satış fiyatı, fiyat değişim tarihi (yyyy-MM-dd ya da ""), depodaki miktar ya da null].
+        // Miktar yalnız depo verilirse (mağaza kullanıcısında kendi deposu) ve listenin indirildiği anki stoktur.
+        app.MapGet("/api/katalog", (int? depo, ClaimsPrincipal user, Db db) =>
+        {
+            if (user.MagazaKullanicisi()) depo = user.Depo();
+            using var conn = db.Mikro();
+            var liste = conn.Query<(string Barkod, string Kod, string Ad, string? Birim, decimal Fiyat, DateTime? Fd, decimal? Miktar)>("""
+                WITH urun AS (
+                    SELECT b.bar_kodu AS barkod, s.sto_kod AS kod, s.sto_isim AS ad, s.sto_birim1_ad AS birim
+                    FROM BARKOD_TANIMLARI b WITH (NOLOCK) JOIN STOKLAR s WITH (NOLOCK) ON s.sto_kod = b.bar_stokkodu
+                    WHERE ISNULL(s.sto_pasif_fl, 0) = 0
+                    UNION
+                    SELECT s.sto_kod, s.sto_kod, s.sto_isim, s.sto_birim1_ad FROM STOKLAR s WITH (NOLOCK) WHERE ISNULL(s.sto_pasif_fl, 0) = 0
+                ),
+                fiyat AS (
+                    SELECT sfiyat_stokkod AS kod, MAX(sfiyat_fiyati) AS fiyat FROM STOK_SATIS_FIYAT_LISTELERI WITH (NOLOCK)
+                    WHERE sfiyat_listesirano = 1 AND sfiyat_deposirano = 0 AND sfiyat_birim_pntr = 1
+                    GROUP BY sfiyat_stokkod
+                ),
+                fd AS (
+                    SELECT fid_stok_kod AS kod, MAX(fid_tarih) AS tarih FROM STOK_FIYAT_DEGISIKLIKLERI WITH (NOLOCK)
+                    WHERE fid_fiyat_no = 1 GROUP BY fid_stok_kod
+                ),
+                stok AS (
+                    SELECT sho_StokKodu AS kod, SUM(sho_GirisNormal + sho_GirisIade - sho_CikisNormal - sho_CikisIade) AS miktar
+                    FROM STOK_HAREKETLERI_OZET WITH (NOLOCK)
+                    WHERE @depo IS NOT NULL AND sho_Depo = @depo AND sho_HareketCins NOT IN (9, 15)
+                    GROUP BY sho_StokKodu
+                )
+                SELECT u.barkod, u.kod, u.ad, u.birim, CAST(ISNULL(f.fiyat, 0) AS decimal(18,2)), fd.tarih,
+                       CASE WHEN @depo IS NULL THEN NULL ELSE CAST(ISNULL(st.miktar, 0) AS decimal(18,3)) END
+                FROM urun u
+                LEFT JOIN fiyat f ON f.kod = u.kod
+                LEFT JOIN fd ON fd.kod = u.kod
+                LEFT JOIN stok st ON st.kod = u.kod
+                """, new { depo }, commandTimeout: 120);
+            return Results.Ok(new
+            {
+                zaman = DateTime.Now,
+                depo,
+                urunler = liste.Select(x => new object?[]
+                {
+                    x.Barkod, x.Kod, x.Ad.Trim(), x.Birim ?? "", x.Fiyat, x.Fd?.ToString("yyyy-MM-dd") ?? "", x.Miktar,
+                }),
+            });
+        })
+        .RequireAuthorization(Roller.Herkes)
+        .WithTags("Stok");
+
         app.MapGet("/api/depolar", (Db db) =>
         {
             using var conn = db.Mikro();

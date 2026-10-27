@@ -29,6 +29,7 @@ export default function EtiketSayfa() {
   const [gun, setGun] = useState(bugun());
   const giris = useRef<HTMLInputElement>(null);
   const yazicilar = useVeri<Yazici[]>("/api/etiket/yazicilar");
+  const sablonlar = useVeri<{ kod: string; ad: string; genislikMm: number; yukseklikMm: number }[]>("/api/etiket/sablonlar");
   const isler = useVeri<Is[]>("/api/etiket/isler?ilk=20");
 
   useEffect(() => {
@@ -128,7 +129,9 @@ export default function EtiketSayfa() {
         <div className="detay">
           <div className="filtre">
             <Alan etiket="Şablon">
-              <select value={sablon} onChange={(e) => setSablon(e.target.value)}><option value="raf">Raf etiketi</option><option value="manav">Manav etiketi</option></select>
+              <select value={sablon} onChange={(e) => setSablon(e.target.value)}>
+                {(sablonlar.veri ?? [{ kod: "raf", ad: "Raf etiketi" }]).map((s) => <option key={s.kod} value={s.kod}>{s.ad}</option>)}
+              </select>
             </Alan>
             <Alan etiket="Yazıcı">
               <select value={yaziciId} onChange={(e) => setYaziciId(+e.target.value)}>
