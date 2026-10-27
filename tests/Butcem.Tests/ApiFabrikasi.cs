@@ -22,7 +22,7 @@ public sealed class ApiFabrikasi : WebApplicationFactory<Program>
 
     public async Task<HttpClient> Admin() => Istemci(_admin ??= await Giris("admin", Environment.GetEnvironmentVariable("BUTCEM_TEST_ADMIN_SIFRE") ?? "Butcem2026!"));
 
-    /// <summary>Depo 1'e bağlı, yalnız sipariş ve sevk yetkili mağaza kullanıcısı (yoksa oluşturulur, varsa yetkileri sıfırlanır).</summary>
+    /// <summary>Depo 1'e bağlı, yalnız sipariş, sevk ve sayım yetkili mağaza kullanıcısı (yoksa oluşturulur, varsa yetkileri sıfırlanır).</summary>
     public async Task<HttpClient> Magaza()
     {
         if (_magaza is null)
@@ -32,7 +32,7 @@ public sealed class ApiFabrikasi : WebApplicationFactory<Program>
             var kayit = new
             {
                 kullaniciAdi = TestMagaza, adSoyad = "Test Mağaza", rol = "magaza", depoNo = TestMagazaDepo, aktif = true,
-                sifre = TestMagazaSifre, yetkiler = new[] { "siparis", "sevk" },
+                sifre = TestMagazaSifre, yetkiler = new[] { "siparis", "sevk", "sayim" },
             };
             var mevcut = liste.FirstOrDefault(k => k.KullaniciAdi == TestMagaza);
             var r = mevcut is null ? await admin.PostAsJsonAsync("/api/kullanicilar", kayit) : await admin.PutAsJsonAsync($"/api/kullanicilar/{mevcut.Id}", kayit);

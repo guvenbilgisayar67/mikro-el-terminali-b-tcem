@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.butcem.terminal"
-    android:versionCode="3"
-    android:versionName="0.3.0">
+    android:versionCode="4"
+    android:versionName="0.4.0">
 
     <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="23" />
     <uses-permission android:name="android.permission.INTERNET" />
@@ -25,6 +25,9 @@
             android:windowSoftInputMode="stateHidden|adjustResize" />
         <activity
             android:name=".SevkActivity"
+            android:windowSoftInputMode="stateHidden|adjustResize" />
+        <activity
+            android:name=".SayimActivity"
             android:windowSoftInputMode="stateHidden|adjustResize" />
     </application>
 </manifest>

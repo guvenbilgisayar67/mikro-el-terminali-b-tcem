@@ -9,11 +9,12 @@ import Fatura from "./sayfalar/Fatura";
 import Fiyat from "./sayfalar/Fiyat";
 import Giris from "./sayfalar/Giris";
 import Satis from "./sayfalar/Satis";
+import Sayim from "./sayfalar/Sayim";
 import Sevk from "./sayfalar/Sevk";
 import Siparis from "./sayfalar/Siparis";
 import Yonetim from "./sayfalar/Yonetim";
 
-type Sayfa = "ciro" | "satis" | "cari" | "cek" | "cekislem" | "fatura" | "sevk" | "siparis" | "fiyat" | "etiket" | "yonetim";
+type Sayfa = "ciro" | "satis" | "cari" | "cek" | "cekislem" | "fatura" | "sevk" | "siparis" | "sayim" | "fiyat" | "etiket" | "yonetim";
 // Her sayfa, listelenen yetkilerden birine sahip kullanıcıya görünür (admin hepsini görür).
 const SAYFALAR: { id: Sayfa; ad: string; yetki: string[] }[] = [
   { id: "ciro", ad: "Günün cirosu", yetki: ["ciro"] },
@@ -24,6 +25,7 @@ const SAYFALAR: { id: Sayfa; ad: string; yetki: string[] }[] = [
   { id: "fatura", ad: "Fatura ve irsaliye", yetki: ["alis_fatura", "satis_fatura"] },
   { id: "sevk", ad: "Depolar arası sevk", yetki: ["sevk"] },
   { id: "siparis", ad: "Sipariş", yetki: ["siparis"] },
+  { id: "sayim", ad: "Sayım", yetki: ["sayim", "sayim_onay"] },
   { id: "fiyat", ad: "Fiyat değişikliği", yetki: ["fiyat_degisikligi"] },
   { id: "etiket", ad: "Etiket", yetki: ["etiket"] },
   { id: "yonetim", ad: "Yönetim", yetki: [] },
@@ -73,6 +75,7 @@ export default function App() {
         {aktif?.id === "fatura" && <Fatura depoNo={depoKilidi} oturum={oturum} />}
         {aktif?.id === "sevk" && <Sevk depoNo={depoKilidi} />}
         {aktif?.id === "siparis" && <Siparis depoNo={depoKilidi} />}
+        {aktif?.id === "sayim" && <Sayim oturum={oturum} depoNo={depoKilidi} />}
         {aktif?.id === "fiyat" && <Fiyat />}
         {aktif?.id === "etiket" && <Etiket />}
         {aktif?.id === "yonetim" && <Yonetim />}

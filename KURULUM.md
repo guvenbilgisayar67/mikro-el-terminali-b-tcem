@@ -92,6 +92,7 @@ Ne yazılır (Mikro'nun kendi evraklarıyla alan alan karşılaştırıldı):
 | Fiyat değişikliği | Fiyat değişiklik fişi, 1 numaralı satış fiyatı, tüm depolar | STOK_FIYAT_DEGISIKLIKLERI, STOK_SATIS_FIYAT_LISTELERI (+ STOKLAR değişti zamanı) |
 | Sipariş (tedarikçiye) | Verilen sipariş (satınalma siparişi), seri mağazanın serisi | SIPARISLER |
 | Sipariş (depoya) | Depolar arası sipariş | DEPOLAR_ARASI_SIPARISLER |
+| Sayım onayı | Sayım sonuçları + sayım giriş (SYMG) / çıkış (SYMC) fişleri | SAYIM_SONUCLARI, STOK_HAREKETLERI |
 
 Kontroller: deponun Mikro'daki kilit tarihine ve ileri tarihe evrak girilmez; portföyde olmayan çek ciro
 edilmez; faturası girilmiş irsaliye tekrar faturalaşmaz; aynı anda Mikro'dan aynı numara alınırsa numara
@@ -100,9 +101,9 @@ yeniden alınır. Her kayıt `IslemLog` tablosuna kim/ne zaman/ne ile yazılır.
 İrsaliye ve faturada her satıra 5 iskonto girilebilir. Mikro'daki gibi zincirlemedir: ikinci iskonto,
 birincisi düşüldükten kalan tutara uygulanır (ör. 901,44 TL'ye %15 + %2 + %6 = 135,22 + 15,32 + 45,05).
 
-v0.3'ten yükseltirken fiyat değişikliği, v0.4'ten yükseltirken sipariş için `sql/03_yazma_kullanicisi.sql`
+v0.3'ten yükseltirken fiyat değişikliği, v0.4'ten yükseltirken sipariş ve sayım için `sql/03_yazma_kullanicisi.sql`
 dosyasını bir kez daha çalıştırın (yalnız yeni tablo yetkilerini ekler). Sipariş için `sql/01_butcem_app.sql`
-de bir kez daha çalıştırılmalı (gönderim kaydı ve tedarikçi iletişim tablolarını ekler).
+de bir kez daha çalıştırılmalı (gönderim kaydı, tedarikçi iletişim ve sayım tablolarını ekler).
 
 Sevk maliyeti ürünün son alış fiyatıdır (iskontolar düşülmüş). Mikro bazı sevklerde farklı bir maliyet
 önerebiliyor; bu yalnız maliyet raporunu etkiler, stok miktarını ve cariyi etkilemez.
@@ -118,7 +119,8 @@ Kullanıcılar panelde **Yönetim → Kullanıcılar** bölümünden açılır (
 | Mağaza personeli | Yalnız işaretlenen ekranları kullanır, yalnız kendi deposunu görür ve yalnız kendi deposuna evrak girer. |
 
 Yetkiler ekran ekran işaretlenir: Günün cirosu, Satış raporu, Cari ekstre, Çek raporu, Çek girişi, Çek çıkışı,
-Alış irsaliyesi ve faturası, Satış faturası, Depolar arası sevk, Fiyat değişikliği, Etiket basma, Sipariş. Örneğin yalnız alış faturası
+Alış irsaliyesi ve faturası, Satış faturası, Depolar arası sevk, Fiyat değişikliği, Etiket basma, Sipariş,
+Sayım yapma, Sayım düzeltme ve onay. Örneğin yalnız alış faturası
 girecek muhasebe personeli için tip **Merkez personeli**, yetki yalnız **Alış irsaliyesi ve faturası** seçilir.
 Bu kişi menüde yalnız "Fatura ve irsaliye" ekranını, içinde de yalnız alış sekmelerini görür. Evrakta cari
 seçebilmesi için ayrıca cari ekstre yetkisi gerekmez.
@@ -162,6 +164,35 @@ siparişi çağırabilirsiniz). Tedarikçi siparişinde fiyat olarak son alış 
   (Bütçem'in kendi veritabanında tutulur, Mikro'ya yazılmaz). Her gönderim kim / ne zaman / nereye diye kaydedilir.
 
 Mağaza personeline sipariş yetkisi verilirse yalnız kendi deposunun siparişini görür ve verir.
+
+### 2d. Sayım
+
+1. **Sayım başlatma:** Mağaza personeli (yetki: *Sayım yapma*) terminalde menüden **Sayım**'ı açar ya da panelde
+   Sayım → "Yeni sayım başlat". Bir depoda aynı anda tek açık sayım olur; birden fazla terminal aynı sayıma okutur.
+2. **Okutma:** barkod okutulur → ürün adı görünür → adet girilir → Ekle. Aynı ürün ikinci kez okutulursa adet
+   üstüne eklenir (iki rafta duran ürün). Barkod bulunamazsa terminal kırmızı uyarı ve uyarı sesi verir, kabul etmez
+   ("yanlış barkod olabilir"). Listede her satır: barkod, toplam adet, ürün adı. Satıra dokunup toplam düzeltilebilir.
+3. **Çevrimdışı:** terminal ürün listesini (barkod, ad, birim) cihaza indirir; merkezle bağlantı koparsa barkod
+   kontrolü ve okutma aynen devam eder, okutmalar cihazda saklanır. Ekranın üstünde "Çevrimiçi / Çevrimdışı" yazar.
+   Bağlantı gelince okutmalar kendiliğinden (20 saniyede bir) ya da "Şimdi gönder" ile merkeze gider. Her okutmanın
+   kendi kimliği vardır; bağlantı yarıda koptuğu için tekrar gönderilen okutma **iki kez sayılmaz**. Uygulama
+   kapansa, oturum süresi dolsa da okutmalar cihazda kalır; tekrar giriş yapınca gönderilir. Yeni ürün açıldıysa
+   "Ürün listesini güncelle" ile liste yenilenir (bağlantı varken listede olmayan barkod merkeze de sorulur).
+4. **Bitirme:** bütün okutmalar merkeze gidince "Sayımı bitir, merkeze onaya gönder".
+5. **Merkez onayı** (yetki: *Sayım düzeltme ve onay*, mağaza personeline verilemez): panelde Sayım → sayım seçilir.
+   Her ürün için okutulan, sayılan, sayım günü sonundaki Mikro stoğu, fark ve fark tutarı (son alış fiyatıyla)
+   görünür. Yanlış girilen adet "Sayılan" kutusunda düzeltilir (boş bırakılırsa ürün sayımdan çıkar); düzeltilen
+   satırlar renkli görünür, terminalden gelen ilk değer de durur. Eksik ürün barkodla eklenebilir. "Mağazaya geri aç"
+   sayımı okutmaya tekrar açar, "İptal et" Mikro'ya hiçbir şey yazmadan kapatır.
+6. **Onayla, Mikro'ya işle:** Mikro'da Sayım sonuçları evrakı açılır; stoktan fazla sayılanlar için SYMG serili
+   sayım giriş fişi, eksik sayılanlar için SYMC serili sayım çıkış fişi yazılır (Mikro'nun kendi sayım aktarımı
+   gibi). Sayılan ürünlerin stoğu sayılan miktara eşitlenir; sayılmayan ürünlere dokunulmaz.
+
+Dikkat: stok, sayım tarihinin **gün sonu** itibarıyla eşitlenir. O günün kasa satışları Mikro'ya aktarılmadan
+onaylanırsa fark yanlış çıkar; sayımı kapanıştan sonra ya da açılıştan önce yapıp satışlar Mikro'ya geçtikten sonra
+onaylayın. Fiş tutarı son alış fiyatıdır (Mikro giriş fişinde de böyle yapıyor; çıkışta Mikro kendi maliyetini
+önerir, bu yalnız maliyet raporunu etkiler, stok miktarını etkilemez). Seriler `Sayim:GirisSerisi` /
+`Sayim:CikisSerisi` ayarıyla değiştirilebilir (varsayılan SYMG / SYMC).
 
 ## 3. Mağaza bilgisayarı: yazdırma programı
 
@@ -213,6 +244,8 @@ olarak doğru çıkar.
    **Bas** denir. Sağ üst menüde **Bugün fiyatı değişenleri ekle** ve **Depolar arası sevk** vardır.
 5. Sevk: menüden **Depolar arası sevk** açılır, çıkış deposu terminalin mağazasıdır. Gidecek depo seçilir,
    ürünler okutulur (her okutma 1 ekler, dokunarak miktar değişir), **Sevki kaydet** denir.
+6. Sayım: menüden **Sayım** (yetki: *Sayım yapma*). İlk açılışta ürün listesi cihaza iner (bağlantı gerekir).
+   Ayrıntı ve çevrimdışı çalışma: bölüm 2d. Sürüm 0.4.0 ile geldi; eski APK'nın üzerine kurulur, ayarlar silinmez.
 
 APK'yı güncellemek için aynı imza anahtarı (`butcem.keystore`, şifresi `butcem123`) gerekir; bu dosyayı saklayın.
 Kaybolursa yeni sürüm kurmadan önce eskisini kaldırmak gerekir.
@@ -232,7 +265,8 @@ Kaybolursa yeni sürüm kurmadan önce eskisini kaldırmak gerekir.
 - Merkez Orion'da şube Z raporları gecikmeli, Aktaş kasaları (11, 12) çoğunlukla eksik. Günün cirosu ekranı bu
   yüzden mağaza bazında "son güncelleme" saatini gösterir. Şube Orion veritabanlarına VPN'den erişilebiliyorsa
   kaynak olarak eklenmesi bunu çözer.
-- APK gerçek iData cihazında henüz denenmedi; ilk kurulumda okuyucu modunu kontrol edin.
+- APK gerçek iData cihazında henüz denenmedi; ilk kurulumda okuyucu modunu kontrol edin. Sayım ekranının
+  çevrimdışı çalışması cihazda (Wi-Fi kapatılarak) denenmeli.
 - Yazma özellikleri kopya veritabanında denendi; canlıda `Yazma:Acik` sizin onayınızla açılacak.
 - Satış irsaliyesi, iade faturaları, çeki bankaya tahsile verme ve senetler henüz yok.
 - Kopyadaki portföyde 2021-2024 vadeli, hâlâ ÇEK KASASI'nda görünen müşteri çekleri var; Mikro'da

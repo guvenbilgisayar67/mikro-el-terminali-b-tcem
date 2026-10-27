@@ -68,6 +68,9 @@ public final class Api {
 
     public void post(String yol, JSONObject govde, Sonuc s) { istek("POST", yol, govde.toString(), s); }
 
+    /** Gövdesi hazır JSON metni olan istek (örn. dizi). */
+    public void postMetin(String yol, String govde, Sonuc s) { istek("POST", yol, govde, s); }
+
     private void istek(final String yontem, final String yol, final String govde, final Sonuc s) {
         final String adres = sunucu() + yol;
         final String tk = token();

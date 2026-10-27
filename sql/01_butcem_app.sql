@@ -28,7 +28,7 @@ CREATE TABLE dbo.Kullanicilar (
 );
 GO
 /* v0.3: ekran yetkileri, virgülle ayrılmış (ciro,satis_raporu,cari_ekstre,cek_raporu,cek_giris,cek_cikis,
-   alis_fatura,satis_fatura,sevk,fiyat_degisikligi,etiket,siparis). NULL: eski varsayılan (merkez: hepsi, mağaza: sevk + etiket). Admin her şeye yetkili. */
+   alis_fatura,satis_fatura,sevk,fiyat_degisikligi,etiket,siparis,sayim,sayim_onay). NULL: eski varsayılan (merkez: hepsi, mağaza: sevk + etiket). Admin her şeye yetkili. */
 IF COL_LENGTH(N'dbo.Kullanicilar', N'Yetkiler') IS NULL
     ALTER TABLE dbo.Kullanicilar ADD Yetkiler nvarchar(400) NULL;
 GO
@@ -113,6 +113,60 @@ CREATE TABLE dbo.TedarikciIletisim (
     Telefon          nvarchar(20)  NULL,
     GuncellemeZamani datetime2 NOT NULL DEFAULT SYSDATETIME()
 );
+GO
+
+/* v0.6: stok sayımı. Terminalden / bilgisayardan okutulan sayımlar onaylanana kadar burada birikir. */
+IF OBJECT_ID(N'dbo.Sayimlar') IS NULL
+CREATE TABLE dbo.Sayimlar (
+    Id              int IDENTITY(1,1) PRIMARY KEY,
+    DepoNo          int NOT NULL,
+    Tarih           date NOT NULL,                  -- Mikro'daki sayım tarihi; stok bu günün sonu itibarıyla eşitlenir
+    Aciklama        nvarchar(200) NULL,
+    Durum           tinyint NOT NULL DEFAULT 0,     -- 0 sayılıyor, 1 onay bekliyor, 2 onaylandı, 3 iptal, 4 işleniyor
+    OlusturanId     int NULL,
+    OlusturmaZamani datetime2 NOT NULL DEFAULT SYSDATETIME(),
+    GonderenId      int NULL,
+    GonderimZamani  datetime2 NULL,
+    OnaylayanId     int NULL,
+    OnayZamani      datetime2 NULL,
+    MikroEvrakNo    int NULL,                       -- SAYIM_SONUCLARI.sym_evrakno
+    GirisFisi       nvarchar(30) NULL,              -- örn. SYMG 7
+    CikisFisi       nvarchar(30) NULL
+);
+GO
+IF OBJECT_ID(N'dbo.SayimSatirlari') IS NULL
+CREATE TABLE dbo.SayimSatirlari (
+    SayimId         int NOT NULL REFERENCES dbo.Sayimlar(Id),
+    StokKodu        nvarchar(50) NOT NULL,
+    Barkod          nvarchar(100) NOT NULL,
+    UrunAdi         nvarchar(100) NOT NULL,
+    Birim           nvarchar(20) NOT NULL,
+    TerminalMiktar  decimal(18,3) NOT NULL,         -- okutulanların toplamı
+    Miktar          decimal(18,3) NOT NULL,         -- geçerli sayılan (merkez düzeltmişse düzeltilmiş)
+    SonOkutanId     int NULL,
+    SonOkutmaZamani datetime2 NOT NULL DEFAULT SYSDATETIME(),
+    DuzeltenId      int NULL,
+    DuzeltmeZamani  datetime2 NULL,
+    SistemStok      decimal(18,3) NULL,             -- onay anında Mikro stoğu
+    Fark            decimal(18,3) NULL,
+    BirimMaliyet    decimal(18,6) NULL,
+    PRIMARY KEY (SayimId, StokKodu)
+);
+GO
+IF OBJECT_ID(N'dbo.SayimGirisleri') IS NULL
+CREATE TABLE dbo.SayimGirisleri (
+    Id          bigint IDENTITY(1,1) PRIMARY KEY,
+    SayimId     int NOT NULL,
+    StokKodu    nvarchar(50) NOT NULL,
+    Miktar      decimal(18,3) NOT NULL,
+    KullaniciId int NULL,
+    Islem       nvarchar(10) NOT NULL,             -- okut, duzelt, cikar
+    IstemciId   uniqueidentifier NULL,             -- terminalin okutma kimliği (çevrimdışı tekrar gönderimde çift sayılmasın)
+    Zaman       datetime2 NOT NULL DEFAULT SYSDATETIME()
+);
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UX_SayimGirisleri_Istemci')
+    CREATE UNIQUE INDEX UX_SayimGirisleri_Istemci ON dbo.SayimGirisleri (IstemciId) WHERE IstemciId IS NOT NULL;
 GO
 
 /* İlk yönetici. Şifre: Butcem2026!  — ilk girişten sonra değiştirin. */

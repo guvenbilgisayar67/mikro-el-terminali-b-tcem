@@ -211,6 +211,7 @@ public class AnaActivity extends Activity {
             m.add(0, 2, 0, "Yazıcıları yenile");
         }
         if (api.yetkili("sevk")) m.add(0, 4, 0, "Depolar arası sevk");
+        if (api.yetkili("sayim")) m.add(0, 5, 0, "Sayım");
         m.add(0, 3, 0, "Çıkış");
         return true;
     }
@@ -219,6 +220,7 @@ public class AnaActivity extends Activity {
         if (i.getItemId() == 1) degisenleriEkle();
         else if (i.getItemId() == 2) yazicilariYukle();
         else if (i.getItemId() == 4) startActivity(new Intent(this, SevkActivity.class));
+        else if (i.getItemId() == 5) startActivity(new Intent(this, SayimActivity.class));
         else if (i.getItemId() == 3) {
             api.cikis();
             startActivity(new Intent(this, GirisActivity.class));

@@ -36,6 +36,8 @@ public static class Yetkiler
     public const string FiyatDegisikligi = "fiyat_degisikligi";
     public const string Etiket = "etiket";
     public const string Siparis = "siparis";
+    public const string Sayim = "sayim";
+    public const string SayimOnay = "sayim_onay";
 
     public static readonly IReadOnlyList<(string Kod, string Ad)> Liste =
     [
@@ -51,6 +53,8 @@ public static class Yetkiler
         (FiyatDegisikligi, "Fiyat değişikliği"),
         (Etiket, "Etiket basma"),
         (Siparis, "Sipariş (öneri, kayıt, gönderim)"),
+        (Sayim, "Sayım yapma (terminal / bilgisayar)"),
+        (SayimOnay, "Sayım düzeltme ve Mikro'ya onay"),
     ];
 
     public static readonly string[] Tumu = Liste.Select(x => x.Kod).ToArray();

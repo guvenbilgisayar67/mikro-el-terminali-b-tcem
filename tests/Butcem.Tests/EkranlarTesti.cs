@@ -34,6 +34,9 @@ public sealed class EkranlarTesti(ApiFabrikasi api)
         "/api/yonetim/ajanlar",
         "/api/siparis",
         "/api/siparis/oneri?depo=1",
+        "/api/sayim",
+        "/api/sayim/acik?depo=1",
+        "/api/sayim/urunler",
     };
 
     [Theory]
@@ -76,6 +79,26 @@ public sealed class EkranlarTesti(ApiFabrikasi api)
         var baska = await m.GetAsync("/api/siparis/oneri?depo=4");
         Assert.Equal(HttpStatusCode.BadRequest, baska.StatusCode);
         Assert.Contains("kendi deponuz", await baska.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task Magaza_baska_deponun_sayimini_goremez_ve_onaylayamaz()
+    {
+        var m = await api.Magaza();
+        Assert.Equal(HttpStatusCode.OK, (await m.GetAsync($"/api/sayim/acik?depo={ApiFabrikasi.TestMagazaDepo}")).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await m.GetAsync("/api/sayim/acik?depo=4")).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await m.PostAsJsonAsync("/api/sayim", new { depo = 4 })).StatusCode);
+    }
+
+    [Fact]
+    public async Task Magazaya_sayim_onayi_verilemez()
+    {
+        var r = await (await api.Admin()).PostAsJsonAsync("/api/kullanicilar", new
+        {
+            kullaniciAdi = "test_gecersiz", adSoyad = "x", rol = "magaza", depoNo = 1, aktif = true, sifre = "Gecersiz_2026!", yetkiler = new[] { "sayim_onay" },
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, r.StatusCode);
+        Assert.Contains("Sayım onayı", await r.Content.ReadAsStringAsync());
     }
 
     public static TheoryData<string, object, string> HataliKayitlar => new()

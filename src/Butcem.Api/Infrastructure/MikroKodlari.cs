@@ -7,7 +7,7 @@ namespace Butcem.Api.Infrastructure;
 public static class Mikro
 {
     public static class StokHarTip { public const int Giris = 0, Cikis = 1, DepoTransfer = 2; }
-    public static class StokHarCins { public const int Toptan = 0, Perakende = 1, DepolarArasi = 6; }
+    public static class StokHarCins { public const int Toptan = 0, Perakende = 1, DepolarArasi = 6, Sayim = 10; }
     public static class StokEvrakTip
     {
         public const int CikisFisi = 0, CikisIrsaliyesi = 1, DepoSevkFisi = 2, GirisFaturasi = 3,

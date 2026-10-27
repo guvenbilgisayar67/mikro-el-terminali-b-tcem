@@ -111,6 +111,8 @@ public static class Kullanicilar
         if (k.Rol == Roller.Magaza && k.DepoNo is null) return "Mağaza kullanıcısına depo seçilmeli.";
         if (k.Rol == Roller.Magaza && k.Yetkiler?.Contains(Yetkiler.Ciro) == true)
             return "Günün cirosu tüm mağazaları gösterir; mağaza kullanıcısına verilemez.";
+        if (k.Rol == Roller.Magaza && k.Yetkiler?.Contains(Yetkiler.SayimOnay) == true)
+            return "Sayım onayı merkezde verilir; mağaza kullanıcısına verilemez.";
         if (k.Rol != Roller.Admin && k.Yetkiler is not { Length: > 0 }) return "En az bir yetki seçin.";
         if (yeni && (k.Sifre is null || k.Sifre.Length < 8)) return "Şifre en az 8 karakter olmalı.";
         if (!yeni && k.Sifre is { Length: > 0 and < 8 }) return "Şifre en az 8 karakter olmalı.";
