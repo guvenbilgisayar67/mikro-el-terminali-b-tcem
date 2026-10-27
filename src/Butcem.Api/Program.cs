@@ -91,6 +91,7 @@ app.MapGet("/api/yazma/durum", (MikroYazici y) => Results.Ok(new { acik = y.Acik
 
 Kullanicilar.Map(app);
 SatisRaporu.Map(app);
+Karlilik.Map(app);
 GunlukCiro.Map(app);
 CariEkstre.Map(app);
 CekRaporu.Map(app);

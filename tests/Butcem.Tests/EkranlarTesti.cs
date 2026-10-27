@@ -37,6 +37,9 @@ public sealed class EkranlarTesti(ApiFabrikasi api)
         "/api/sayim",
         "/api/sayim/acik?depo=1",
         "/api/sayim/urunler",
+        $"/api/karlilik?bas={Gun(7)}&bit={Gun()}",
+        $"/api/karlilik?bas={Gun(7)}&bit={Gun()}&kirilim=Urun&ilk=50",
+        $"/api/karlilik?bas={Gun(7)}&bit={Gun()}&kirilim=Gun&tur=Perakende&depo=1",
     };
 
     [Theory]

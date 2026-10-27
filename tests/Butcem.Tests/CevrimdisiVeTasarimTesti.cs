@@ -169,6 +169,34 @@ public sealed class CevrimdisiVeTasarimTesti(ApiFabrikasi api)
         Assert.Equal("1.234 50", EtiketCizici.MetniDoldur("{fiyatLira} {fiyatKurus}", d));
     }
 
+    [Fact]
+    public async Task Cari_ekstre_satirinin_icerigi_acilir()
+    {
+        var admin = await api.Admin();
+        // Son ayın bir alış faturası: ekstrede satırı, içinde ürün satırları ve net toplamı faturanın tutarı.
+        var cariler = await admin.GetFromJsonAsync<List<JsonElement>>("/api/cari?ara=320.&ilk=30");
+        foreach (var c in cariler!)
+        {
+            var e = await admin.GetFromJsonAsync<JsonElement>($"/api/cari/{Uri.EscapeDataString(c.GetProperty("kod").GetString()!)}/ekstre");
+            var fatura = e.GetProperty("hareketler").EnumerateArray().FirstOrDefault(h => h.GetProperty("evrakAdi").GetString() == "Alış faturası");
+            if (fatura.ValueKind == JsonValueKind.Undefined) continue;
+            var d = await admin.GetFromJsonAsync<JsonElement>($"/api/cari/evrak/{fatura.GetProperty("guid").GetString()}");
+            var satirlar = d.GetProperty("satirlar");
+            Assert.True(satirlar.GetArrayLength() > 0);
+            var net = satirlar.EnumerateArray().Sum(s => s.GetProperty("net").GetDecimal());
+            Assert.InRange(net, fatura.GetProperty("alacak").GetDecimal() - 1, fatura.GetProperty("alacak").GetDecimal() + 1);
+            return;
+        }
+        Assert.Fail("Alış faturası olan cari bulunamadı.");
+    }
+
+    [Fact]
+    public async Task Olmayan_evrak_404()
+    {
+        var r = await (await api.Admin()).GetAsync($"/api/cari/evrak/{Guid.NewGuid()}");
+        Assert.Equal(HttpStatusCode.NotFound, r.StatusCode);
+    }
+
     private static async Task<int> TestYazicisi(HttpClient admin)
     {
         var mevcut = await admin.GetFromJsonAsync<List<JsonElement>>("/api/etiket/yazicilar");

@@ -125,3 +125,10 @@ input.isk { width: 54px; text-align: right; }
 .oge-ayari .izgara { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
 .oge-ayari .izgara input.kisa { width: 100%; }
 @media (max-width: 900px) { .tasarim-duzen, .tasarim-alt { grid-template-columns: 1fr; } }
+.evrak-ici table.ic { margin: 4px 0 10px; }
+tr.toplam td { font-weight: 600; background: var(--zemin); }
+.oran { display: block; height: 6px; background: var(--cizgi); border-radius: 3px; overflow: hidden; }
+.oran-dolu { display: block; height: 100%; background: var(--vurgu); }
+.oran-dolu.orta { background: #c98a1b; }
+.oran-dolu.dusuk { background: var(--hata); }
+td.soluk { color: var(--soluk); white-space: normal; }

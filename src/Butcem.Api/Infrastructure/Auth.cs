@@ -26,6 +26,7 @@ public static class Yetkiler
 {
     public const string Ciro = "ciro";
     public const string SatisRaporu = "satis_raporu";
+    public const string Karlilik = "karlilik";
     public const string CariEkstre = "cari_ekstre";
     public const string CekRaporu = "cek_raporu";
     public const string CekGiris = "cek_giris";
@@ -44,6 +45,7 @@ public static class Yetkiler
     [
         (Ciro, "Günün cirosu"),
         (SatisRaporu, "Satış raporu"),
+        (Karlilik, "Karlılık analizi"),
         (CariEkstre, "Cari ekstre"),
         (CekRaporu, "Çek raporu"),
         (CekGiris, "Çek girişi"),
