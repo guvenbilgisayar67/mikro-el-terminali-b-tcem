@@ -72,7 +72,7 @@ Açmak için:
      verinizden alındı: 1 TEPE, 2 SOLAK, 3 A.DEPO, 4 HATIP, 5 boş.
    - `Yazma:CekKasasi`: müşteri çeklerinin durduğu kasa (`ÇEK KASASI`).
    - `Yazma:SatisEBelge`: `true` ise satış faturası Mikro'daki gibi e-belge kaydıyla açılır ve Mikro'nun
-     e-fatura / e-arşiv ekranından gönderilir. `false` ise e-belge kaydı açılmaz.
+     e-fatura / e-arşiv ekranından gönderilir. `false` ise e-belge kaydı açılmaz. Varsayılan `true`.
    - `Yazma:KdvOranlari` (isteğe bağlı): KDV göstergesine göre oran. Boşsa 1:%0, 2:%1, 3:%8, 4:%18, 6:%10,
      7:%20 kullanılır (verinizden doğrulandı).
    - Son olarak `Yazma:Acik: true`.
