@@ -106,6 +106,8 @@ dosyasını bir kez daha çalıştırın (yalnız yeni tablo yetkilerini ekler).
 de bir kez daha çalıştırılmalı (gönderim kaydı, tedarikçi iletişim ve sayım tablolarını ekler).
 v0.6'dan yükseltirken yalnız `sql/01_butcem_app.sql` bir kez daha çalıştırılır (etiket tasarımları ve terminalin
 bekleyen işlemleri için iki tablo ekler); Mikro tarafında yeni yetki gerekmez.
+v0.7'den v0.8'e yükseltirken SQL çalıştırılmaz; yalnız `ButcemApi` klasörü değiştirilir (kendi `appsettings.json`
+dosyanızı koruyun). Karlılık analizini görecek merkez kullanıcılarına Yönetim'den *Karlılık analizi* yetkisi verin.
 
 Sevk maliyeti ürünün son alış fiyatıdır (iskontolar düşülmüş). Mikro bazı sevklerde farklı bir maliyet
 önerebiliyor; bu yalnız maliyet raporunu etkiler, stok miktarını ve cariyi etkilemez.
@@ -120,7 +122,7 @@ Kullanıcılar panelde **Yönetim → Kullanıcılar** bölümünden açılır (
 | Merkez personeli | Yalnız işaretlenen ekranları kullanır, tüm depoları görür. |
 | Mağaza personeli | Yalnız işaretlenen ekranları kullanır, yalnız kendi deposunu görür ve yalnız kendi deposuna evrak girer. |
 
-Yetkiler ekran ekran işaretlenir: Günün cirosu, Satış raporu, Cari ekstre, Çek raporu, Çek girişi, Çek çıkışı,
+Yetkiler ekran ekran işaretlenir: Günün cirosu, Satış raporu, Karlılık analizi, Cari ekstre, Çek raporu, Çek girişi, Çek çıkışı,
 Alış irsaliyesi ve faturası, Satış faturası, Depolar arası sevk, Fiyat değişikliği, Etiket basma, Etiket tasarımı,
 Sipariş, Sayım yapma, Sayım düzeltme ve onay. Örneğin yalnız alış faturası
 girecek muhasebe personeli için tip **Merkez personeli**, yetki yalnız **Alış irsaliyesi ve faturası** seçilir.
@@ -216,6 +218,20 @@ değişikliği gerekmez:
   o öğe hiç basılmaz.
 - **Kullanımda** işareti kaldırılan tasarım terminalde ve Etiket ekranında listelenmez. **Sıra** listedeki sırasıdır.
 - Kaydedilen tasarım hemen kullanılır; terminal tasarım listesini açılışta ve menüdeki "Yazıcıları yenile" ile alır.
+
+### 2f. Ana sayfa, karlılık ve cari ekstre
+
+- **Günün cirosu** ana sayfadır: üstte ciro (geçen haftanın aynı gününe göre değişimiyle), nakit, kredi kartı ve
+  bu ayın brüt kâr oranı; altında son 14 gün / 30 gün / 12 ay ciro grafiği, mağazalar, en çok kâr getiren gruplar
+  ve **Bekleyen işler** (onay bekleyen sayım, faturalanmamış alış irsaliyesi, 7 gün içinde vadesi gelen çek /
+  senet, bugün fiyatı değişen ürün). Bekleyen işlerde kişi yalnız yetkisi olan ekranların maddelerini görür;
+  satıra tıklayınca ilgili ekran açılır. Bugüne bakılırken sayfa 5 dakikada bir kendiliğinden yenilenir.
+- **Karlılık analizi** (yetki: *Karlılık analizi*): Mikro'da maliyetlendirme çalıştırılmadığı için maliyet, ürünün
+  satıldığı gün geçerli son alış fiyatıdır (iskontolu, KDV hariç). Alış kaydı olmayan ürünler ve alışı koli / kasa
+  ile girilmiş (alış fiyatı satışın 3 katından fazla ya da %5'inden az) ürünler kâra katılmaz; ekrandaki
+  **ürünleri göster** listesinden kontrol edilir. Mağaza personeli yalnız kendi deposunu görür.
+- **Cari ekstre**: satıra tıklayınca evrakın içeriği açılır (faturada ürün satırları ve toplamlar, çek / senet
+  evrakında belgeler, aynı evrakın diğer satırları).
 
 ## 3. Mağaza bilgisayarı: yazdırma programı
 
