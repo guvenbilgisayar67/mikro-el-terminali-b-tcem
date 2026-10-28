@@ -41,6 +41,16 @@ public static class Siparisler
     public sealed record Evrak(string Tur, string Seri, int Sira, DateTime Tarih, DateTime TeslimTarihi, int Depo, string DepoAdi,
                                string KaynakKod, string KaynakAd, string BelgeNo, List<Satir> Satirlar);
 
+    /// <summary>Sipariş detayındaki ürün için merkezin görmek istediği bilgiler (sipariş deposuna göre).</summary>
+    public sealed record UrunBilgisi(string StokKodu, decimal Stok, DateTime? SonGelisTarih, decimal? SonGelisMiktar, string? SonGelisTur,
+                                     string? SonGelisKaynak, string? SonGelisEvrak, DateTime? SonAlisTarih, string? SonAlisCari,
+                                     decimal? SonAlisFiyat, decimal KdvOrani, decimal? SonAlisKdvDahil, decimal? SatisFiyati,
+                                     decimal? KarOrani, decimal Satis30, decimal? KacGunluk);
+
+    private sealed record HamBilgi(string StokKodu, int VergiPntr, decimal Stok, DateTime? GTarih, decimal? GMiktar, int? GTip,
+                                   string? GCari, int? GCikisDepo, string? GSeri, int? GSira, DateTime? ATarih, string? ACari,
+                                   decimal? AFiyat, decimal? SatisFiyati, decimal Satis30);
+
     public sealed record GonderIstek(string Tur, string? Seri, int Sira, string Alici, string? Not);
 
     public static void Map(WebApplication app)
@@ -124,6 +134,16 @@ public static class Siparisler
             var evrak = EvrakOku(conn, tur, seri ?? "", sira);
             user.DepoYetkisi(evrak.Depo);
             return Results.Ok(evrak);
+        });
+
+        // Sipariş satırlarının yanında: depodaki stok, depoya son gelen miktar (alış ya da sevk), son alış fiyatı
+        // (KDV hariç / dahil), raf fiyatı, kâr oranı, son 30 gün satış ve stokun kaç günlük olduğu.
+        g.MapGet("/bilgi", (string tur, string? seri, int sira, ClaimsPrincipal user, Db db, IConfiguration config) =>
+        {
+            using var conn = db.Mikro();
+            var evrak = EvrakOku(conn, tur, seri ?? "", sira);
+            user.DepoYetkisi(evrak.Depo);
+            return Results.Ok(UrunBilgileri(conn, config, evrak.Depo, evrak.Satirlar.Select(x => x.StokKodu).Distinct().ToList()));
         });
 
         // Tedarikçiye gidecek sipariş formu (PDF). Fiyat yazılmaz; yalnız ürün, barkod, miktar.
@@ -445,6 +465,108 @@ public static class Siparisler
         var stok = MikroEvrak.Stok(conn, tx, s.Urun);
         if (!gorulen.Add(stok.Kod)) throw new IslemHatasi($"{stok.Ad} siparişte iki kez var.");
         return stok;
+    }
+
+    public static List<UrunBilgisi> UrunBilgileri(IDbConnection conn, IConfiguration config, int depo, List<string> kodlar)
+    {
+        if (kodlar.Count == 0) return [];
+        var bugun = DateTime.Today;
+        // Her bilgi ürün listesine göre ayrı süzülür (STOK_HAREKETLERI'nde stok kodu + tarih indeksi); ürün başına
+        // alt sorgu (OUTER APPLY) büyük siparişte dakikalarca sürüyordu.
+        var ham = conn.Query<HamBilgi>($"""
+            WITH stk AS (
+                SELECT o.sho_StokKodu AS kod, SUM(o.sho_GirisNormal + o.sho_GirisIade - o.sho_CikisNormal - o.sho_CikisIade) AS m
+                FROM STOK_HAREKETLERI_OZET o WITH (NOLOCK)
+                WHERE o.sho_StokKodu IN @kodlar AND o.sho_Depo = @depo AND o.sho_HareketCins NOT IN (9, 15)
+                GROUP BY o.sho_StokKodu
+            ),
+            gl AS (
+                -- Depoya son giriş: alış irsaliyesi / faturası ya da başka depodan sevk.
+                SELECT * FROM (
+                    SELECT h.sth_stok_kod AS kod, h.sth_tarih, CAST(h.sth_tip AS int) AS tip, h.sth_evraktip, h.sth_cari_kodu,
+                           h.sth_cikis_depo_no, h.sth_evrakno_seri, h.sth_evrakno_sira,
+                           ROW_NUMBER() OVER (PARTITION BY h.sth_stok_kod ORDER BY h.sth_tarih DESC, h.sth_create_date DESC) AS r
+                    FROM STOK_HAREKETLERI h WITH (NOLOCK)
+                    WHERE h.sth_stok_kod IN @kodlar AND h.sth_tarih >= @girisBas AND h.sth_giris_depo_no = @depo
+                      AND h.sth_normal_iade = 0 AND h.sth_miktar > 0 AND ISNULL(h.sth_iptal, 0) = 0
+                      AND ((h.sth_tip = 0 AND h.sth_evraktip IN (3, 13) AND h.sth_cari_kodu <> '')
+                        OR (h.sth_tip = 2 AND h.sth_cins = 6 AND h.sth_cikis_depo_no <> @depo))
+                ) x WHERE x.r = 1
+            ),
+            glm AS (
+                -- O evrakta bu üründen gelen toplam (aynı ürün birkaç satırda olabilir).
+                SELECT g.kod, SUM(h.sth_miktar) AS m
+                FROM gl g
+                JOIN STOK_HAREKETLERI h WITH (NOLOCK)
+                  ON h.sth_evraktip = g.sth_evraktip AND h.sth_evrakno_seri = g.sth_evrakno_seri AND h.sth_evrakno_sira = g.sth_evrakno_sira
+                 AND h.sth_stok_kod = g.kod AND h.sth_giris_depo_no = @depo AND h.sth_tip = g.tip
+                GROUP BY g.kod
+            ),
+            al AS (
+                SELECT * FROM (
+                    SELECT h.sth_stok_kod AS kod, h.sth_tarih, h.sth_cari_kodu,
+                           (h.sth_tutar - h.sth_iskonto1 - h.sth_iskonto2 - h.sth_iskonto3 - h.sth_iskonto4 - h.sth_iskonto5 - h.sth_iskonto6) / h.sth_miktar AS f,
+                           ROW_NUMBER() OVER (PARTITION BY h.sth_stok_kod ORDER BY h.sth_tarih DESC, h.sth_create_date DESC) AS r
+                    FROM STOK_HAREKETLERI h WITH (NOLOCK)
+                    WHERE h.sth_stok_kod IN @kodlar AND h.sth_tip = 0 AND h.sth_evraktip IN (3, 13)
+                      AND h.sth_normal_iade = 0 AND h.sth_miktar > 0
+                ) x WHERE x.r = 1
+            ),
+            fy AS (
+                SELECT * FROM (
+                    SELECT sfiyat_stokkod AS kod, sfiyat_fiyati AS f,
+                           ROW_NUMBER() OVER (PARTITION BY sfiyat_stokkod ORDER BY sfiyat_deposirano DESC) AS r
+                    FROM STOK_SATIS_FIYAT_LISTELERI WITH (NOLOCK)
+                    WHERE sfiyat_stokkod IN @kodlar AND sfiyat_listesirano = {Mikro.SatisFiyatListesi} AND sfiyat_deposirano IN (0, @depo)
+                ) x WHERE x.r = 1
+            ),
+            sat AS (
+                SELECT h.sth_stok_kod AS kod, SUM(CASE WHEN h.sth_normal_iade = 1 THEN -1 ELSE 1 END * h.sth_miktar) AS m
+                FROM STOK_HAREKETLERI h WITH (NOLOCK)
+                WHERE h.sth_stok_kod IN @kodlar AND h.sth_tarih >= @satisBas AND h.sth_tarih < @yarin
+                  AND h.sth_tip = 1 AND h.sth_evraktip = 4 AND ISNULL(h.sth_iptal, 0) = 0 AND h.sth_cikis_depo_no = @depo
+                GROUP BY h.sth_stok_kod
+            )
+            SELECT st.sto_kod AS StokKodu, CAST(st.sto_toptan_vergi AS int) AS VergiPntr,
+                   CAST(ISNULL(stk.m, 0) AS decimal(18,3)) AS Stok,
+                   gl.sth_tarih AS GTarih, CAST(glm.m AS decimal(18,3)) AS GMiktar, gl.tip AS GTip, gl.sth_cari_kodu AS GCari,
+                   gl.sth_cikis_depo_no AS GCikisDepo, gl.sth_evrakno_seri AS GSeri, gl.sth_evrakno_sira AS GSira,
+                   al.sth_tarih AS ATarih, al.sth_cari_kodu AS ACari, CAST(al.f AS decimal(18,4)) AS AFiyat,
+                   CAST(fy.f AS decimal(18,2)) AS SatisFiyati,
+                   CAST(ISNULL(sat.m, 0) AS decimal(18,3)) AS Satis30
+            FROM STOKLAR st WITH (NOLOCK)
+            LEFT JOIN stk ON stk.kod = st.sto_kod
+            LEFT JOIN gl ON gl.kod = st.sto_kod
+            LEFT JOIN glm ON glm.kod = st.sto_kod
+            LEFT JOIN al ON al.kod = st.sto_kod
+            LEFT JOIN fy ON fy.kod = st.sto_kod
+            LEFT JOIN sat ON sat.kod = st.sto_kod
+            WHERE st.sto_kod IN @kodlar
+            """, new { depo, kodlar, girisBas = bugun.AddDays(-SonGirisGun), satisBas = bugun.AddDays(-30), yarin = bugun.AddDays(1) },
+            commandTimeout: 120).ToList();
+
+        var cariler = Adlar(conn, "SELECT cari_kod AS Kod, cari_unvan1 AS Ad FROM CARI_HESAPLAR WITH (NOLOCK) WHERE cari_kod IN @kodlar",
+            ham.SelectMany(h => new[] { h.GCari, h.ACari }));
+        var depolar = Adlar(conn, "SELECT CAST(dep_no AS nvarchar(25)) AS Kod, dep_adi AS Ad FROM DEPOLAR WITH (NOLOCK)", []);
+
+        return ham.Select(h =>
+        {
+            decimal kdv;
+            try { kdv = Faturalar.KdvOrani(config, h.VergiPntr); } catch (IslemHatasi) { kdv = 0; }
+            var sevk = h.GTip == 2;
+            var kaynak = h.GTarih is null ? null
+                : sevk ? $"Depo {h.GCikisDepo} · {depolar.GetValueOrDefault(h.GCikisDepo?.ToString() ?? "", "").Trim()}"
+                : cariler.GetValueOrDefault(h.GCari ?? "", h.GCari ?? "").Trim();
+            var dahil = h.AFiyat is { } f ? Math.Round(f * (1 + kdv / 100), 2) : (decimal?)null;
+            // Kâr oranı: raf fiyatı (KDV dahil) ile son alışın KDV dahil hali arasındaki fark, satışa göre.
+            var kar = h.SatisFiyati is > 0 && dahil is { } d ? Math.Round((h.SatisFiyati.Value - d) / h.SatisFiyati.Value * 100, 1) : (decimal?)null;
+            var gunluk = h.Satis30 / 30;
+            return new UrunBilgisi(h.StokKodu, h.Stok, h.GTarih, h.GMiktar, h.GTarih is null ? null : sevk ? "sevk" : "alis", kaynak,
+                h.GTarih is null ? null : $"{h.GSeri}{h.GSira}", h.ATarih,
+                h.ACari is null ? null : cariler.GetValueOrDefault(h.ACari, h.ACari).Trim(),
+                h.AFiyat is { } a ? Math.Round(a, 4) : null, kdv, dahil, h.SatisFiyati, kar, h.Satis30,
+                gunluk > 0 ? Math.Round(Math.Max(h.Stok, 0) / gunluk, 1) : null);
+        }).ToList();
     }
 
     public static Evrak EvrakOku(IDbConnection conn, string tur, string seri, int sira)

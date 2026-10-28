@@ -89,6 +89,23 @@ public sealed class EkranlarTesti(ApiFabrikasi api)
     }
 
     [Fact]
+    public async Task Siparis_detayinda_urun_bilgileri_gelir()
+    {
+        var a = await api.Admin();
+        var liste = await a.GetFromJsonAsync<List<System.Text.Json.JsonElement>>("/api/siparis?bas=2026-01-01");
+        if (liste is not { Count: > 0 }) return;
+        var o = liste[0];
+        var q = $"tur={o.GetProperty("tur").GetString()}&seri={o.GetProperty("seri").GetString()}&sira={o.GetProperty("sira").GetInt32()}";
+        var detay = await a.GetFromJsonAsync<System.Text.Json.JsonElement>($"/api/siparis/detay?{q}");
+        var bilgi = await a.GetFromJsonAsync<List<System.Text.Json.JsonElement>>($"/api/siparis/bilgi?{q}");
+        var kodlar = detay.GetProperty("satirlar").EnumerateArray().Select(x => x.GetProperty("stokKodu").GetString()).Distinct().ToList();
+        Assert.Equal(kodlar.Count, bilgi!.Count);
+        foreach (var b in bilgi)
+            if (b.GetProperty("sonAlisFiyat").ValueKind == System.Text.Json.JsonValueKind.Number)
+                Assert.True(b.GetProperty("sonAlisKdvDahil").GetDecimal() >= b.GetProperty("sonAlisFiyat").GetDecimal());
+    }
+
+    [Fact]
     public async Task Gunluk_ciro_araligi_sinirli()
     {
         var a = await api.Admin();
