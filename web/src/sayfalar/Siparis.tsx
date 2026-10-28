@@ -14,7 +14,8 @@ type Ozet = {
 };
 type UrunBilgisi = { stokKodu: string; stok: number; sonGelisTarih: string | null; sonGelisMiktar: number | null; sonGelisTur: "alis" | "sevk" | null;
   sonGelisKaynak: string | null; sonGelisEvrak: string | null; sonAlisTarih: string | null; sonAlisCari: string | null; sonAlisFiyat: number | null;
-  kdvOrani: number; sonAlisKdvDahil: number | null; satisFiyati: number | null; karOrani: number | null; satis30: number; kacGunluk: number | null };
+  kdvOrani: number; sonAlisKdvDahil: number | null; satisFiyati: number | null; karOrani: number | null; satis30: number; kacGunluk: number | null;
+  depolar: { depo: number; depoAdi: string; stok: number; tarih: string | null; miktar: number | null; tur: "alis" | "sevk" | null; kaynak: string | null }[] };
 type Detay = { satirNo: number; stokKodu: string; barkod: string; urunAdi: string; birim: string; miktar: number; teslim: number; tutar: number };
 type Evrak = { tur: string; seri: string; sira: number };
 
@@ -334,7 +335,7 @@ function Gonder({ evrak, gonderildi }: { evrak: Ozet; gonderildi: () => void }) 
   return (
     <div>
       <Durum hata={detay.hata ?? bilgi.hata} yukleniyor={detay.yukleniyor || bilgi.yukleniyor} />
-      {detay.veri && <SiparisIcerik satirlar={detay.veri.satirlar} bilgiler={urunler.veri} yukleniyor={urunler.yukleniyor} hata={urunler.hata} />}
+      {detay.veri && <SiparisIcerik depo={evrak.depo} satirlar={detay.veri.satirlar} bilgiler={urunler.veri} yukleniyor={urunler.yukleniyor} hata={urunler.hata} />}
       <div className="filtre" style={{ marginTop: 10 }}>
         <Alan etiket="Mesaja eklenecek not (isteğe bağlı)"><input style={{ width: 320 }} value={not} onChange={(e) => setNot(e.target.value)} placeholder="örn. Sabah 10'dan önce teslim" /></Alan>
         <button className="ikincil" onClick={pdf}>PDF indir</button>
@@ -352,7 +353,7 @@ function Gonder({ evrak, gonderildi }: { evrak: Ozet; gonderildi: () => void }) 
 }
 
 /** Sipariş satırları ve her ürün için: depodaki stok, depoya son gelen (alış ya da sevk), son alış fiyatı, raf fiyatı, kâr, satış. */
-function SiparisIcerik({ satirlar, bilgiler, yukleniyor, hata }: { satirlar: Detay[]; bilgiler: UrunBilgisi[] | null; yukleniyor: boolean; hata: string | null }) {
+function SiparisIcerik({ satirlar, bilgiler, yukleniyor, hata, depo }: { satirlar: Detay[]; bilgiler: UrunBilgisi[] | null; yukleniyor: boolean; hata: string | null; depo: number }) {
   const b = new Map((bilgiler ?? []).map((x) => [x.stokKodu, x]));
   const toplam = (f: (d: Detay, x: UrunBilgisi) => number | null) =>
     satirlar.reduce((t, d) => { const x = b.get(d.stokKodu); const v = x ? f(d, x) : null; return t + (v ?? 0); }, 0);
@@ -362,7 +363,7 @@ function SiparisIcerik({ satirlar, bilgiler, yukleniyor, hata }: { satirlar: Det
       <table className="ic">
         <thead>
           <tr>
-            <th>Ürün</th><th className="s">Sipariş</th><th className="s">Depoda stok</th><th>Depoya son gelen</th>
+            <th>Ürün</th><th className="s">Sipariş</th><th className="s">Depoda stok</th><th>Depolara son geliş · adet · stok</th>
             <th className="s">Son alış KDV hariç</th><th className="s">Son alış KDV dahil</th><th className="s">Raf fiyatı</th><th className="s">Kâr</th>
             <th className="s">30 gün satış</th><th className="s">Kaç günlük</th>
           </tr>
@@ -375,14 +376,21 @@ function SiparisIcerik({ satirlar, bilgiler, yukleniyor, hata }: { satirlar: Det
                 <td>{d.urunAdi}<br /><small className="not">{d.barkod}</small></td>
                 <td className="s"><b>{miktar(d.miktar)}</b> {d.birim}{d.teslim ? <><br /><small className="not">gelen {miktar(d.teslim)}</small></> : null}</td>
                 <td className={"s" + (x && x.stok < 0 ? " eksi" : "")}>{x ? miktar(x.stok) : ""}</td>
-                <td style={{ whiteSpace: "normal", minWidth: 180 }}>
-                  {x?.sonGelisTarih ? (
-                    <>
-                      <b>{miktar(x.sonGelisMiktar)}</b> {d.birim} · {tarih(x.sonGelisTarih)}{" "}
-                      <span className={"pill " + (x.sonGelisTur === "sevk" ? "mor" : "mavi")}>{x.sonGelisTur === "sevk" ? "Sevk" : "Alış"}</span>
-                      <br /><small className="not">{x.sonGelisKaynak}{x.sonGelisEvrak ? ` · ${x.sonGelisEvrak}` : ""}</small>
-                    </>
-                  ) : x ? <span className="not">son 1 yılda giriş yok</span> : null}
+                <td style={{ whiteSpace: "normal", minWidth: 420 }}>
+                  {x && x.depolar.length === 0 && <span className="not">son 1 yılda giriş yok</span>}
+                  {x && x.depolar.length > 0 && (
+                    <div className="depo-gelis">
+                      {x.depolar.map((g) => (
+                        <div key={g.depo} className={g.depo === depo ? "bu" : ""} title={g.kaynak ? `${g.tur === "sevk" ? "Sevk eden depo" : "Tedarikçi"}: ${g.kaynak}` : ""}>
+                          <b>{g.depoAdi}</b>
+                          <span className="s">{g.miktar != null ? `${miktar(g.miktar)} ${d.birim}` : "—"}</span>
+                          <span>{g.tarih ? tarih(g.tarih) : ""}</span>
+                          <span>{g.tur && <span className={"pill " + (g.tur === "sevk" ? "mor" : "mavi")}>{g.tur === "sevk" ? `Sevk · ${g.kaynak}` : "Alış"}</span>}</span>
+                          <span className={"s" + (g.stok < 0 ? " eksi" : "")}>{miktar(g.stok)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </td>
                 <td className="s" title={x?.sonAlisCari ?? ""}>
                   {x?.sonAlisFiyat != null ? <>{para(x.sonAlisFiyat)}<br /><small className="not">{tarih(x.sonAlisTarih)}</small></> : x ? <span className="not">alış yok</span> : ""}
@@ -410,7 +418,7 @@ function SiparisIcerik({ satirlar, bilgiler, yukleniyor, hata }: { satirlar: Det
       {yukleniyor && !bilgiler && <div className="bilgi">Stok, son giriş ve fiyat bilgileri yükleniyor…</div>}
       {bilgiler && (
         <p className="not">
-          Stok ve satış siparişin verildiği depoya göredir. Son gelen: bu depoya en son gelen alış ya da depolar arası sevk. Son alış fiyatı tüm depolardaki
+          Stok ve satış siparişin verildiği depoya göredir. Depolara son geliş: her depoya (ana depo ve mağazalar) en son gelen alış ya da depolar arası sevk, adedi ve o depodaki güncel stok; siparişi veren depo kalın yazılır, alış satırının üzerine gelince tedarikçi görünür. Son alış fiyatı tüm depolardaki
           en son alıştır (iskontolu); üzerine gelince tedarikçisi görünür. Kâr: raf fiyatı ile son alışın KDV dahil hali arasındaki fark.
         </p>
       )}

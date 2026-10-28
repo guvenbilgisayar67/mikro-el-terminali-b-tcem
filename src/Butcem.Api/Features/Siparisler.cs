@@ -45,7 +45,15 @@ public static class Siparisler
     public sealed record UrunBilgisi(string StokKodu, decimal Stok, DateTime? SonGelisTarih, decimal? SonGelisMiktar, string? SonGelisTur,
                                      string? SonGelisKaynak, string? SonGelisEvrak, DateTime? SonAlisTarih, string? SonAlisCari,
                                      decimal? SonAlisFiyat, decimal KdvOrani, decimal? SonAlisKdvDahil, decimal? SatisFiyati,
-                                     decimal? KarOrani, decimal Satis30, decimal? KacGunluk);
+                                     decimal? KarOrani, decimal Satis30, decimal? KacGunluk)
+    {
+        /// <summary>Her depoya (ana depo ve mağazalar) son geliş ve o depodaki stok; ürünün izlediği yol görünsün diye.</summary>
+        public List<DepoGelisi> Depolar { get; init; } = [];
+    }
+
+    public sealed record DepoGelisi(int Depo, string DepoAdi, decimal Stok, DateTime? Tarih, decimal? Miktar, string? Tur, string? Kaynak);
+
+    private sealed record HamDepoGelisi(string Kod, int Depo, DateTime Tarih, decimal Miktar, int Tip, string? Cari, int CikisDepo);
 
     private sealed record HamBilgi(string StokKodu, int VergiPntr, decimal Stok, DateTime? GTarih, decimal? GMiktar, int? GTip,
                                    string? GCari, int? GCikisDepo, string? GSeri, int? GSira, DateTime? ATarih, string? ACari,
@@ -549,6 +557,49 @@ public static class Siparisler
             ham.SelectMany(h => new[] { h.GCari, h.ACari }));
         var depolar = Adlar(conn, "SELECT CAST(dep_no AS nvarchar(25)) AS Kod, dep_adi AS Ad FROM DEPOLAR WITH (NOLOCK)", []);
 
+        // Tüm depolar: son giriş (alış ya da başka depodan sevk; aynı evraktaki satırlar toplanır) ve stok.
+        var gelisler = conn.Query<HamDepoGelisi>("""
+            WITH g AS (
+                SELECT h.sth_stok_kod AS kod, h.sth_giris_depo_no AS depo, h.sth_tarih, CAST(h.sth_tip AS int) AS tip, h.sth_evraktip,
+                       h.sth_cari_kodu, h.sth_cikis_depo_no, h.sth_evrakno_seri, h.sth_evrakno_sira,
+                       ROW_NUMBER() OVER (PARTITION BY h.sth_stok_kod, h.sth_giris_depo_no ORDER BY h.sth_tarih DESC, h.sth_create_date DESC) AS r
+                FROM STOK_HAREKETLERI h WITH (NOLOCK)
+                WHERE h.sth_stok_kod IN @kodlar AND h.sth_tarih >= @girisBas
+                  AND h.sth_normal_iade = 0 AND h.sth_miktar > 0 AND ISNULL(h.sth_iptal, 0) = 0
+                  AND ((h.sth_tip = 0 AND h.sth_evraktip IN (3, 13) AND h.sth_cari_kodu <> '')
+                    OR (h.sth_tip = 2 AND h.sth_cins = 6 AND h.sth_cikis_depo_no <> h.sth_giris_depo_no))
+            )
+            SELECT g.kod AS Kod, g.depo AS Depo, g.sth_tarih AS Tarih, CAST(SUM(h.sth_miktar) AS decimal(18,3)) AS Miktar, g.tip AS Tip,
+                   g.sth_cari_kodu AS Cari, g.sth_cikis_depo_no AS CikisDepo
+            FROM g
+            JOIN STOK_HAREKETLERI h WITH (NOLOCK)
+              ON h.sth_evraktip = g.sth_evraktip AND h.sth_evrakno_seri = g.sth_evrakno_seri AND h.sth_evrakno_sira = g.sth_evrakno_sira
+             AND h.sth_stok_kod = g.kod AND h.sth_giris_depo_no = g.depo AND h.sth_tip = g.tip
+            WHERE g.r = 1
+            GROUP BY g.kod, g.depo, g.sth_tarih, g.tip, g.sth_cari_kodu, g.sth_cikis_depo_no
+            """, new { kodlar, girisBas = bugun.AddDays(-SonGirisGun) }, commandTimeout: 120).ToLookup(x => x.Kod);
+        var stoklar = conn.Query<(string Kod, int Depo, decimal Stok)>("""
+            SELECT o.sho_StokKodu, o.sho_Depo, CAST(SUM(o.sho_GirisNormal + o.sho_GirisIade - o.sho_CikisNormal - o.sho_CikisIade) AS decimal(18,3))
+            FROM STOK_HAREKETLERI_OZET o WITH (NOLOCK)
+            WHERE o.sho_StokKodu IN @kodlar AND o.sho_HareketCins NOT IN (9, 15)
+            GROUP BY o.sho_StokKodu, o.sho_Depo
+            """, new { kodlar }).ToLookup(x => x.Kod);
+        var tumDepolar = conn.Query<(int No, string Ad)>("SELECT dep_no, dep_adi FROM DEPOLAR WITH (NOLOCK) ORDER BY dep_no").ToList();
+        var gelisCarileri = Adlar(conn, "SELECT cari_kod AS Kod, cari_unvan1 AS Ad FROM CARI_HESAPLAR WITH (NOLOCK) WHERE cari_kod IN @kodlar",
+            gelisler.SelectMany(g => g).Where(g => g.Tip == 0).Select(g => g.Cari));
+
+        List<DepoGelisi> DepoListesi(string kod) => tumDepolar.Select(d =>
+        {
+            var gl = gelisler[kod].FirstOrDefault(x => x.Depo == d.No);
+            var stok = stoklar[kod].FirstOrDefault(x => x.Depo == d.No).Stok;
+            var kaynak = gl is null ? null
+                : gl.Tip == 2 ? tumDepolar.FirstOrDefault(x => x.No == gl.CikisDepo).Ad?.Trim() ?? $"Depo {gl.CikisDepo}"
+                : gelisCarileri.GetValueOrDefault(gl.Cari ?? "", gl.Cari ?? "").Trim();
+            return new DepoGelisi(d.No, d.Ad.Trim(), stok, gl?.Tarih, gl?.Miktar, gl is null ? null : gl.Tip == 2 ? "sevk" : "alis", kaynak);
+        })
+        // Hiç girişi ve stoğu olmayan depo listelenmez.
+        .Where(d => d.Tarih is not null || d.Stok != 0).ToList();
+
         return ham.Select(h =>
         {
             decimal kdv;
@@ -565,7 +616,7 @@ public static class Siparisler
                 h.GTarih is null ? null : $"{h.GSeri}{h.GSira}", h.ATarih,
                 h.ACari is null ? null : cariler.GetValueOrDefault(h.ACari, h.ACari).Trim(),
                 h.AFiyat is { } a ? Math.Round(a, 4) : null, kdv, dahil, h.SatisFiyati, kar, h.Satis30,
-                gunluk > 0 ? Math.Round(Math.Max(h.Stok, 0) / gunluk, 1) : null);
+                gunluk > 0 ? Math.Round(Math.Max(h.Stok, 0) / gunluk, 1) : null) { Depolar = DepoListesi(h.StokKodu) };
         }).ToList();
     }
 

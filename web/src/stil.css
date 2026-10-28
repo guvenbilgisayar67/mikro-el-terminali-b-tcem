@@ -260,3 +260,9 @@ table.ic td:first-child { min-width: 160px; }
   .kart-deger { font-size: 18px; }
   .kart-ikon { width: 32px; height: 32px; }
 }
+.depo-gelis { display: grid; grid-template-columns: auto auto auto 1fr auto; gap: 2px 10px; font-size: 12px; align-items: center; }
+.depo-gelis > div { display: contents; color: var(--soluk); }
+.depo-gelis > div > * { white-space: nowrap; }
+.depo-gelis > div > b { font-weight: 500; color: var(--yazi); }
+.depo-gelis > div.bu > * { color: var(--yazi); font-weight: 700; }
+.depo-gelis .pill { font-size: 10.5px; padding: 1px 6px; }
