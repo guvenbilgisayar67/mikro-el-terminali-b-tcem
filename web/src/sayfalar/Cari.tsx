@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { bugun, csvIndir, para, qs, tarih } from "../api";
-import { Alan, Durum, Kart, useVeri } from "../ortak";
+import { Alan, Durum, useVeri } from "../ortak";
 
 type Cari = { kod: string; unvan: string; vergiNo: string | null; telefon: string | null; eposta: string | null; borc: number; alacak: number; bakiye: number };
 type Hareket = { tarih: string; evrakNo: string; evrakAdi: string; belgeNo: string | null; aciklama: string | null; borc: number; alacak: number; bakiye: number; vade: string | null; guid: string };
@@ -22,7 +22,13 @@ function EvrakIcerik({ guid }: { guid: string }) {
   const irsaliyeler = [...new Set(satirlar.map((s) => s.irsaliye).filter(Boolean))];
   return (
     <div className="evrak-ici">
-      <p className="not">{baslik.evrakAdi} {baslik.evrakNo}{baslik.belgeNo ? ` · belge no ${baslik.belgeNo}` : ""}{irsaliyeler.length ? ` · irsaliye ${irsaliyeler.join(", ")}` : ""}</p>
+      <div className="evrak-ust">
+        <b>{baslik.evrakAdi} {baslik.evrakNo}</b>
+        {baslik.belgeNo && <span className="pill">Belge {baslik.belgeNo}</span>}
+        {irsaliyeler.map((i) => <span key={i} className="pill">İrsaliye {i}</span>)}
+        {[...new Set(satirlar.map((x) => x.depoNo))].map((d) => <span key={d} className="pill">Depo {d}</span>)}
+        {baslik.vade && <span className="pill">Vade {tarih(baslik.vade)}</span>}
+      </div>
       {satirlar.length > 0 && (
         <table className="ic">
           <thead><tr><th>Ürün</th><th>Kod</th><th className="s">Miktar</th><th className="s">Birim fiyat</th><th className="s">Tutar</th><th className="s">İskonto</th><th className="s">KDV</th><th className="s">Net</th><th className="s">Depo</th></tr></thead>
@@ -49,7 +55,7 @@ function EvrakIcerik({ guid }: { guid: string }) {
           <p className="not">Aynı evraktaki diğer satırlar</p>
           <table className="ic">
             <thead><tr><th>Evrak</th><th>Cari</th><th>Açıklama</th><th>Vade</th><th className="s">Borç</th><th className="s">Alacak</th></tr></thead>
-            <tbody>{digerSatirlar.map((h) => <tr key={h.guid}><td>{h.evrakAdi}</td><td>{h.cariAdi}</td><td>{h.aciklama}</td><td>{tarih(h.vade)}</td><td className="s">{h.borc ? para(h.borc) : ""}</td><td className="s">{h.alacak ? para(h.alacak) : ""}</td></tr>)}</tbody>
+            <tbody>{digerSatirlar.map((h) => <tr key={h.guid}><td>{h.evrakAdi}</td><td>{h.cariAdi}</td><td className="soluk">{h.aciklama}</td><td>{tarih(h.vade)}</td><td className="s">{h.borc ? para(h.borc) : ""}</td><td className="s">{h.alacak ? para(h.alacak) : ""}</td></tr>)}</tbody>
           </table>
         </>
       )}
@@ -57,6 +63,17 @@ function EvrakIcerik({ guid }: { guid: string }) {
     </div>
   );
 }
+
+/** Evrak türüne göre etiket rengi. */
+function evrakRengi(ad: string) {
+  const a = ad.toLocaleLowerCase("tr-TR");
+  if (a.includes("iade")) return "turuncu";
+  if (a.includes("alış") || a.includes("alis")) return "mavi";
+  if (a.includes("satış") || a.includes("satis")) return "mor";
+  if (a.includes("çek") || a.includes("senet") || a.includes("tahsil") || a.includes("ödeme") || a.includes("kasa") || a.includes("banka") || a.includes("kredi")) return "yesil";
+  return "";
+}
+const basHarf = (s: string) => s.replace(/[^\p{L}\p{N} ]/gu, " ").split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]).join("").toLocaleUpperCase("tr-TR");
 
 const bakiyeYazi = (n: number) => `${para(Math.abs(n))} ${n > 0 ? "(B)" : n < 0 ? "(A)" : ""}`;
 
@@ -109,27 +126,37 @@ export default function CariSayfa() {
               <Durum hata={ekstre.hata} yukleniyor={ekstre.yukleniyor} />
               {ekstre.veri && (
                 <div className="yazdirilabilir">
-                  <h2>{ekstre.veri.cari.unvan} <small>{ekstre.veri.cari.kod}</small></h2>
-                  <p className="not">{tarih(ekstre.veri.baslangic)} – {tarih(ekstre.veri.bitis)} · (B) borçlu, (A) alacaklı</p>
-                  <div className="kartlar">
-                    <Kart baslik="Devir" deger={bakiyeYazi(ekstre.veri.devirBakiye)} />
-                    <Kart baslik="Dönem borç" deger={para(ekstre.veri.donemBorc)} />
-                    <Kart baslik="Dönem alacak" deger={para(ekstre.veri.donemAlacak)} />
-                    <Kart baslik="Son bakiye" deger={bakiyeYazi(ekstre.veri.sonBakiye)} />
+                  <div className="cari-kart">
+                    <span className="harf">{basHarf(ekstre.veri.cari.unvan)}</span>
+                    <div className="kimlik">
+                      <b>{ekstre.veri.cari.unvan}</b>
+                      <span className="not">{[ekstre.veri.cari.kod, ekstre.veri.cari.vergiNo && `Vergi no ${ekstre.veri.cari.vergiNo}`, ekstre.veri.cari.telefon, ekstre.veri.cari.eposta].filter(Boolean).join(" · ")}</span>
+                      <div className="not">{tarih(ekstre.veri.baslangic)} – {tarih(ekstre.veri.bitis)} · (B) borçlu, (A) alacaklı · içeriğini görmek için satıra tıklayın</div>
+                    </div>
+                    <div className="rakamlar">
+                      <div><span className="kart-baslik">Devir</span><b>{bakiyeYazi(ekstre.veri.devirBakiye)}</b></div>
+                      <div><span className="kart-baslik">Dönem borç</span><b>{para(ekstre.veri.donemBorc)}</b></div>
+                      <div><span className="kart-baslik">Dönem alacak</span><b>{para(ekstre.veri.donemAlacak)}</b></div>
+                      <div className="bakiye"><span className="kart-baslik">Son bakiye</span>
+                        <b className={ekstre.veri.sonBakiye < 0 ? "eksi" : ""}>{para(Math.abs(ekstre.veri.sonBakiye))}{" "}
+                          {ekstre.veri.sonBakiye !== 0 && <span className={"pill " + (ekstre.veri.sonBakiye < 0 ? "kirmizi" : "mavi")}>{ekstre.veri.sonBakiye < 0 ? "Alacaklı" : "Borçlu"}</span>}
+                        </b>
+                      </div>
+                    </div>
                   </div>
                   <table>
-                    <thead><tr><th>Tarih</th><th>Evrak</th><th>Evrak no</th><th>Açıklama</th><th>Vade</th><th className="s">Borç</th><th className="s">Alacak</th><th className="s">Bakiye</th></tr></thead>
+                    <thead><tr><th>Tarih</th><th>Evrak</th><th>Evrak no</th><th>Açıklama</th><th>Vade</th><th className="s">Borç</th><th className="s">Alacak</th><th className="s">Bakiye</th><th></th></tr></thead>
                     <tbody>
-                      <tr className="devir"><td colSpan={7}>Devir</td><td className="s">{bakiyeYazi(ekstre.veri.devirBakiye)}</td></tr>
+                      <tr className="devir"><td colSpan={7}>Devir</td><td className="s">{bakiyeYazi(ekstre.veri.devirBakiye)}</td><td></td></tr>
                       {ekstre.veri.hareketler.map((h) => [
                         <tr key={h.guid} className={"tiklanir" + (acik === h.guid ? " secili" : "")} title="İçeriğini görmek için tıklayın"
                             onClick={() => setAcik(acik === h.guid ? null : h.guid)}>
-                          <td>{tarih(h.tarih)}</td><td>{h.evrakAdi}</td><td title={h.belgeNo ? `Belge no: ${h.belgeNo}` : ""}>{h.evrakNo}</td>
-                          <td>{h.aciklama}</td><td>{tarih(h.vade)}</td>
+                          <td>{tarih(h.tarih)}</td><td><span className={"pill " + evrakRengi(h.evrakAdi)}>{h.evrakAdi}</span></td><td title={h.belgeNo ? `Belge no: ${h.belgeNo}` : ""}>{h.evrakNo}</td>
+                          <td className="soluk">{h.aciklama}</td><td>{tarih(h.vade)}</td>
                           <td className="s">{h.borc ? para(h.borc) : ""}</td><td className="s">{h.alacak ? para(h.alacak) : ""}</td>
-                          <td className="s b">{bakiyeYazi(h.bakiye)}</td>
+                          <td className="s b">{bakiyeYazi(h.bakiye)}</td><td className="ok">{acik === h.guid ? "⌄" : "›"}</td>
                         </tr>,
-                        acik === h.guid && <tr key={h.guid + "-ic"} className="alt-satir"><td colSpan={8}><EvrakIcerik guid={h.guid} /></td></tr>,
+                        acik === h.guid && <tr key={h.guid + "-ic"} className="alt-satir"><td colSpan={9}><EvrakIcerik guid={h.guid} /></td></tr>,
                       ])}
                     </tbody>
                   </table>

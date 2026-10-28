@@ -40,6 +40,10 @@ public sealed class EkranlarTesti(ApiFabrikasi api)
         $"/api/karlilik?bas={Gun(7)}&bit={Gun()}",
         $"/api/karlilik?bas={Gun(7)}&bit={Gun()}&kirilim=Urun&ilk=50",
         $"/api/karlilik?bas={Gun(7)}&bit={Gun()}&kirilim=Gun&tur=Perakende&depo=1",
+        "/api/ana-sayfa/bekleyenler",
+        $"/api/ciro?tarih={Gun(1)}",
+        $"/api/ciro/gunler?bas={Gun(13)}&bit={Gun()}",
+        $"/api/ciro/gunler?bas={Gun(364)}&bit={Gun()}",
     };
 
     [Theory]
@@ -71,8 +75,28 @@ public sealed class EkranlarTesti(ApiFabrikasi api)
     [InlineData("/api/kullanicilar")]
     [InlineData("/api/cek")]
     [InlineData("/api/fatura/bekleyen-irsaliyeler")]
+    [InlineData("/api/ciro/gunler?bas=2026-10-01&bit=2026-10-07")]
     public async Task Yetkisiz_ekran_403(string yol) =>
         Assert.Equal(HttpStatusCode.Forbidden, (await (await api.Magaza()).GetAsync(yol)).StatusCode);
+
+    [Fact]
+    public async Task Bekleyen_isler_yalniz_yetkili_ekranlardan_gelir()
+    {
+        var admin = await (await api.Admin()).GetFromJsonAsync<List<Dictionary<string, string>>>("/api/ana-sayfa/bekleyenler");
+        var magaza = await (await api.Magaza()).GetFromJsonAsync<List<Dictionary<string, string>>>("/api/ana-sayfa/bekleyenler");
+        Assert.DoesNotContain(magaza!, b => b["tur"] is "irsaliye" or "cek" or "etiket");
+        Assert.All(admin!, b => Assert.False(string.IsNullOrEmpty(b["metin"])));
+    }
+
+    [Fact]
+    public async Task Gunluk_ciro_araligi_sinirli()
+    {
+        var a = await api.Admin();
+        Assert.Equal(HttpStatusCode.BadRequest, (await a.GetAsync("/api/ciro/gunler?bas=2025-01-01&bit=2026-10-01")).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await a.GetAsync("/api/ciro/gunler?bas=2026-10-02&bit=2026-10-01")).StatusCode);
+        var d = await a.GetFromJsonAsync<System.Text.Json.JsonElement>("/api/ciro/gunler?bas=2026-10-01&bit=2026-10-07");
+        Assert.Equal(7, d.GetProperty("gunler").GetArrayLength());
+    }
 
     [Fact]
     public async Task Magaza_yalniz_kendi_deposunun_siparisini_gorur()

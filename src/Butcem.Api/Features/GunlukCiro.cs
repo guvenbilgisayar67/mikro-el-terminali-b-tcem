@@ -78,5 +78,46 @@ public static class GunlukCiro
         })
         .RequireYetki(Yetkiler.Ciro)
         .WithTags("Raporlar");
+
+        // Ana sayfa grafiği: gün gün toplam ciro (aynı Z raporları, kasa ayrıntısı olmadan).
+        app.MapGet("/api/ciro/gunler", (DateOnly bas, DateOnly bit, ILoggerFactory lf, Db db) =>
+        {
+            if (bit < bas) return Results.BadRequest("Bitiş tarihi başlangıçtan önce olamaz.");
+            if (bit.DayNumber - bas.DayNumber > 400) return Results.BadRequest("En fazla 400 günlük aralık sorgulanabilir.");
+            var log = lf.CreateLogger("GunlukCiro");
+            var hatalar = new List<string>();
+            var gorulen = new HashSet<string>();
+            var toplamlar = new SortedDictionary<DateOnly, decimal>();
+            for (var d = bas; d <= bit; d = d.AddDays(1)) toplamlar[d] = 0;
+
+            foreach (var kaynak in db.OrionKaynaklari)
+            {
+                try
+                {
+                    using var conn = db.Orion(kaynak);
+                    var rows = conn.Query<(string BelgeKodu, string KasaKodu, DateTime Tarih, decimal ZToplam)>("""
+                        SELECT m.BELGEKODU, k.KASAKODU, m.BELGETARIHI, CAST(m.ZRAPORUTOPLAM AS decimal(18,2))
+                        FROM TBL_KASA_TAKIP_FIS_MAIN m WITH (NOLOCK)
+                        JOIN TBL_KASA_MAIN k WITH (NOLOCK) ON k.ID = m.KASAID
+                        WHERE m.BELGETARIHI >= @bas AND m.BELGETARIHI <= @bit;
+                        """, new { bas = bas.ToDateTime(TimeOnly.MinValue), bit = bit.ToDateTime(TimeOnly.MinValue) }, commandTimeout: 30);
+                    foreach (var r in rows)
+                        if (gorulen.Add($"{r.KasaKodu}|{r.BelgeKodu}"))
+                            toplamlar[DateOnly.FromDateTime(r.Tarih)] = toplamlar.GetValueOrDefault(DateOnly.FromDateTime(r.Tarih)) + r.ZToplam;
+                }
+                catch (Exception ex)
+                {
+                    log.LogWarning(ex, "Orion kaynağına ulaşılamadı: {Kaynak}", kaynak.Ad);
+                    hatalar.Add(kaynak.Ad);
+                }
+            }
+            return Results.Ok(new
+            {
+                gunler = toplamlar.Select(x => new { tarih = x.Key, toplam = x.Value }),
+                ulasilamayanKaynaklar = hatalar,
+            });
+        })
+        .RequireYetki(Yetkiler.Ciro)
+        .WithTags("Raporlar");
     }
 }

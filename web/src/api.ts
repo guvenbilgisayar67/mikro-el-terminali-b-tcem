@@ -79,6 +79,9 @@ export const qs = (p: Record<string, string | number | null | undefined>) =>
 const tl = new Intl.NumberFormat("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const sayi = new Intl.NumberFormat("tr-TR", { maximumFractionDigits: 3 });
 export const para = (n: number | null | undefined) => (n == null ? "" : tl.format(n));
+const tam = new Intl.NumberFormat("tr-TR", { maximumFractionDigits: 0 });
+/** Kuruşsuz tutar (özet kartları ve grafikler için). */
+export const paraTam = (n: number | null | undefined) => (n == null ? "" : tam.format(n));
 export const miktar = (n: number | null | undefined) => (n == null ? "" : sayi.format(n));
 export const tarih = (s: string | null | undefined) =>
   s ? new Date(s.length === 10 ? s + "T00:00:00" : s).toLocaleDateString("tr-TR") : "";
@@ -88,6 +91,11 @@ export const saat = (s: string | null | undefined) =>
 export const bugun = () => isoGun(new Date());
 export const isoGun = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+export const gunEkle = (iso: string, n: number) => {
+  const d = new Date(iso + "T00:00:00");
+  d.setDate(d.getDate() + n);
+  return isoGun(d);
+};
 export const ayBasi = () => {
   const d = new Date();
   return isoGun(new Date(d.getFullYear(), d.getMonth(), 1));

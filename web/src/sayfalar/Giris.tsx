@@ -17,7 +17,7 @@ export default function Giris({ girdi }: { girdi: (o: Oturum) => void }) {
         catch (err) { setHata((err as Error).message); }
         finally { setBekle(false); }
       }}>
-        <h1>Bütçem</h1>
+        <h1><span className="logo">B</span>Bütçem</h1>
         <p className="not">Mağaza ve rapor paneli</p>
         <label className="alan"><span>Kullanıcı adı</span><input autoFocus required value={kullaniciAdi} onChange={(e) => setKullaniciAdi(e.target.value)} /></label>
         <label className="alan"><span>Şifre</span><input type="password" required value={sifre} onChange={(e) => setSifre(e.target.value)} /></label>

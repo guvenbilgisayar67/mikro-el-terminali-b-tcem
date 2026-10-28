@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, Oturum, oturumDustugunde, oturumOku, oturumYaz, yetkili } from "./api";
+import { Ikon, IkonAdi } from "./ikonlar";
 import Cari from "./sayfalar/Cari";
 import Cek from "./sayfalar/Cek";
 import CekIslem from "./sayfalar/CekIslem";
@@ -17,23 +18,26 @@ import Siparis from "./sayfalar/Siparis";
 import Yonetim from "./sayfalar/Yonetim";
 
 type Sayfa = "ciro" | "satis" | "karlilik" | "cari" | "cek" | "cekislem" | "fatura" | "sevk" | "siparis" | "sayim" | "fiyat" | "etiket" | "etikettasarim" | "yonetim";
-// Her sayfa, listelenen yetkilerden birine sahip kullanıcıya görünür (admin hepsini görür).
-const SAYFALAR: { id: Sayfa; ad: string; yetki: string[] }[] = [
-  { id: "ciro", ad: "Günün cirosu", yetki: ["ciro"] },
-  { id: "satis", ad: "Satış raporu", yetki: ["satis_raporu"] },
-  { id: "karlilik", ad: "Karlılık analizi", yetki: ["karlilik"] },
-  { id: "cari", ad: "Cari ekstre", yetki: ["cari_ekstre"] },
-  { id: "cek", ad: "Çek raporu", yetki: ["cek_raporu"] },
-  { id: "cekislem", ad: "Çek giriş / çıkış", yetki: ["cek_giris", "cek_cikis"] },
-  { id: "fatura", ad: "Fatura ve irsaliye", yetki: ["alis_fatura", "satis_fatura"] },
-  { id: "sevk", ad: "Depolar arası sevk", yetki: ["sevk"] },
-  { id: "siparis", ad: "Sipariş", yetki: ["siparis"] },
-  { id: "sayim", ad: "Sayım", yetki: ["sayim", "sayim_onay"] },
-  { id: "fiyat", ad: "Fiyat değişikliği", yetki: ["fiyat_degisikligi"] },
-  { id: "etiket", ad: "Etiket", yetki: ["etiket"] },
-  { id: "etikettasarim", ad: "Etiket tasarımı", yetki: ["etiket_tasarim"] },
-  { id: "yonetim", ad: "Yönetim", yetki: [] },
+// Her sayfa, listelenen yetkilerden birine sahip kullanıcıya görünür (admin hepsini görür). Menüde gruba göre sıralanır.
+const SAYFALAR: { id: Sayfa; ad: string; yetki: string[]; grup: string; ikon: IkonAdi }[] = [
+  { id: "ciro", ad: "Günün cirosu", yetki: ["ciro"], grup: "Raporlar", ikon: "ciro" },
+  { id: "satis", ad: "Satış raporu", yetki: ["satis_raporu"], grup: "Raporlar", ikon: "rapor" },
+  { id: "karlilik", ad: "Karlılık analizi", yetki: ["karlilik"], grup: "Raporlar", ikon: "kar" },
+  { id: "cari", ad: "Cari ekstre", yetki: ["cari_ekstre"], grup: "Raporlar", ikon: "cari" },
+  { id: "cek", ad: "Çek raporu", yetki: ["cek_raporu"], grup: "Raporlar", ikon: "cek" },
+  { id: "cekislem", ad: "Çek giriş / çıkış", yetki: ["cek_giris", "cek_cikis"], grup: "Evrak", ikon: "cek" },
+  { id: "fatura", ad: "Fatura ve irsaliye", yetki: ["alis_fatura", "satis_fatura"], grup: "Evrak", ikon: "fatura" },
+  { id: "sevk", ad: "Depolar arası sevk", yetki: ["sevk"], grup: "Evrak", ikon: "sevk" },
+  { id: "siparis", ad: "Sipariş", yetki: ["siparis"], grup: "Evrak", ikon: "siparis" },
+  { id: "sayim", ad: "Sayım", yetki: ["sayim", "sayim_onay"], grup: "Evrak", ikon: "sayim" },
+  { id: "fiyat", ad: "Fiyat değişikliği", yetki: ["fiyat_degisikligi"], grup: "Stok ve etiket", ikon: "fiyat" },
+  { id: "etiket", ad: "Etiket bas", yetki: ["etiket"], grup: "Stok ve etiket", ikon: "etiket" },
+  { id: "etikettasarim", ad: "Etiket tasarımı", yetki: ["etiket_tasarim"], grup: "Stok ve etiket", ikon: "tasarim" },
+  { id: "yonetim", ad: "Yönetim", yetki: [], grup: "", ikon: "yonetim" },
 ];
+
+const ROL_ADI: Record<Oturum["rol"], string> = { admin: "Yönetici", merkez: "Merkez", magaza: "Mağaza" };
+const basHarfler = (ad: string) => ad.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]).join("").toLocaleUpperCase("tr-TR");
 
 export default function App() {
   const [oturum, setOturum] = useState<Oturum | null>(oturumOku());
@@ -51,7 +55,14 @@ export default function App() {
     }).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [oturum?.token]);
-  useEffect(() => { location.hash = sayfa; }, [sayfa]);
+  const [menuAcik, setMenuAcik] = useState(false);
+  useEffect(() => { location.hash = sayfa; setMenuAcik(false); }, [sayfa]);
+  // Ana sayfadaki kısayollar (ör. "Karlılık analizi →") başka sayfaya geçmek için adresi değiştirir.
+  useEffect(() => {
+    const f = () => setSayfa((location.hash.slice(1) as Sayfa) || "ciro");
+    window.addEventListener("hashchange", f);
+    return () => window.removeEventListener("hashchange", f);
+  }, []);
 
   if (!oturum) return <Giris girdi={(o) => { oturumYaz(o); setOturum(o); }} />;
   const aktif = izinli.find((s) => s.id === sayfa) ?? izinli[0];
@@ -59,19 +70,28 @@ export default function App() {
 
   return (
     <div className="kabuk">
-      <nav>
-        <div className="marka">Bütçem</div>
-        {izinli.map((s) => (
-          <button key={s.id} className={s.id === aktif?.id ? "aktif" : ""} onClick={() => setSayfa(s.id)}>{s.ad}</button>
-        ))}
+      <nav className={menuAcik ? "acik" : ""}>
+        <div className="marka">
+          <span className="logo">B</span>Bütçem
+          <button className="menu-dugme" aria-label="Menü" onClick={() => setMenuAcik(!menuAcik)}><Ikon ad="menu" /></button>
+        </div>
+        <div className="menu">
+          {izinli.map((s, i) => [
+            s.grup !== izinli[i - 1]?.grup && <div key={"g" + s.grup} className={"grup" + (s.grup ? "" : " bos")}>{s.grup}</div>,
+            <button key={s.id} className={s.id === aktif?.id ? "aktif" : ""} onClick={() => setSayfa(s.id)}>
+              <Ikon ad={s.ikon} />{s.ad}
+            </button>,
+          ])}
+        </div>
         <div className="kullanici">
-          <span>{oturum.adSoyad}</span>
-          <button className="ikincil" onClick={() => { oturumYaz(null); setOturum(null); }}>Çıkış</button>
+          <span className="avatar">{basHarfler(oturum.adSoyad)}</span>
+          <span className="kim"><b>{oturum.adSoyad}</b><small>{ROL_ADI[oturum.rol] ?? oturum.rol}</small></span>
+          <button className="cikis" title="Çıkış" aria-label="Çıkış" onClick={() => { oturumYaz(null); setOturum(null); }}><Ikon ad="cikis" /></button>
         </div>
       </nav>
-      <main>
+      <main style={{ ["--grup" as string]: aktif?.grup ? `"${aktif.grup}"` : `""` }}>
         {!aktif && <p className="not">Size henüz bir ekran yetkisi verilmemiş. Yöneticinize başvurun.</p>}
-        {aktif?.id === "ciro" && <Ciro />}
+        {aktif?.id === "ciro" && <Ciro oturum={oturum} />}
         {aktif?.id === "satis" && <Satis depoKilitli={depoKilidi != null} />}
         {aktif?.id === "karlilik" && <Karlilik depoKilitli={depoKilidi != null} />}
         {aktif?.id === "cari" && <Cari />}

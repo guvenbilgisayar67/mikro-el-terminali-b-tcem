@@ -93,6 +93,7 @@ Kullanicilar.Map(app);
 SatisRaporu.Map(app);
 Karlilik.Map(app);
 GunlukCiro.Map(app);
+AnaSayfa.Map(app);
 CariEkstre.Map(app);
 CekRaporu.Map(app);
 Stok.Map(app);

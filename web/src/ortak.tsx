@@ -1,5 +1,6 @@
 import { ReactNode, useEffect, useState } from "react";
 import { api } from "./api";
+import { Ikon, IkonAdi } from "./ikonlar";
 
 export function useVeri<T>(yol: string | null) {
   const [veri, setVeri] = useState<T | null>(null);
@@ -29,15 +30,41 @@ export function Durum({ hata, yukleniyor }: { hata: string | null; yukleniyor: b
   return null;
 }
 
-export function Kart({ baslik, deger, alt }: { baslik: string; deger: ReactNode; alt?: ReactNode }) {
+export type Renk = "yesil" | "mavi" | "turuncu" | "mor" | "kirmizi";
+
+export function Kart({ baslik, deger, alt, ikon, renk, degerSinif }: { baslik: string; deger: ReactNode; alt?: ReactNode; ikon?: IkonAdi; renk?: Renk; degerSinif?: string }) {
   return (
     <div className="kart">
-      <div className="kart-baslik">{baslik}</div>
-      <div className="kart-deger">{deger}</div>
-      {alt && <div className="kart-alt">{alt}</div>}
+      {ikon && <span className={"kart-ikon " + (renk ?? "")}><Ikon ad={ikon} boyut={20} /></span>}
+      <div>
+        <div className="kart-baslik">{baslik}</div>
+        <div className={"kart-deger " + (degerSinif ?? "")}>{deger}</div>
+        {alt && <div className="kart-alt">{alt}</div>}
+      </div>
     </div>
   );
 }
+
+/** Önceki döneme göre değişim: ▲ %6,2 (yeşil) / ▼ %1,4 (kırmızı). */
+export function Degisim({ simdi, once, ek }: { simdi: number; once: number | null | undefined; ek?: string }) {
+  if (!once || !simdi) return null;
+  const y = ((simdi - once) / Math.abs(once)) * 100;
+  return <><span className={y >= 0 ? "artis" : "azalis"}>{y >= 0 ? "▲" : "▼"} %{Math.abs(y).toLocaleString("tr-TR", { maximumFractionDigits: 1, minimumFractionDigits: 1 })}</span>{ek && <> {ek}</>}</>;
+}
+
+/** Tek seçimli çip grubu. */
+export function Cipler<T extends string>({ secenekler, deger, degisti }: { secenekler: [T, string][]; deger: T | null; degisti: (d: T) => void }) {
+  return (
+    <div className="cipler">
+      {secenekler.map(([k, a]) => <button type="button" key={k} className={"cip" + (k === deger ? " aktif" : "")} onClick={() => degisti(k)}>{a}</button>)}
+    </div>
+  );
+}
+
+/** Kâr oranı rengi: %10 altı kırmızı, %20 altı turuncu. */
+export const oranSinifi = (o: number | null | undefined) => (o == null ? "" : o < 10 ? "dusuk" : o < 20 ? "orta" : "");
+export const oranRengi = (o: number | null | undefined): Renk => (o == null ? "yesil" : o < 10 ? "kirmizi" : o < 20 ? "turuncu" : "yesil");
+export const yuzde = (n: number | null | undefined) => (n == null ? "" : `%${n.toLocaleString("tr-TR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}`);
 
 export function Alan({ etiket, children }: { etiket: string; children: ReactNode }) {
   return (
