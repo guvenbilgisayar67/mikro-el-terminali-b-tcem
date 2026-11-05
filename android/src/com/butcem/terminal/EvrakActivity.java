@@ -16,12 +16,10 @@ import android.view.KeyEvent;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.inputmethod.EditorInfo;
-import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
-import android.widget.ListView;
 import android.widget.ScrollView;
 import android.widget.Spinner;
 import android.widget.TextView;
@@ -221,69 +219,15 @@ public class EvrakActivity extends Activity implements Kuyruk.Dinleyici {
     // --- Cari ---
 
     private void cariSec() {
-        final LinearLayout k = Ui.dikey(this);
-        int p = Ui.dp(this, 16);
-        k.setPadding(p, p / 2, p, 0);
-        final EditText ara = new EditText(this);
-        ara.setHint("Ünvan ya da kodun bir parçası");
-        ara.setSingleLine(true);
-        k.addView(ara);
-        final ListView lv = new ListView(this);
-        k.addView(lv, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, Ui.dp(this, 300)));
-        final List<String[]> bulunan = new ArrayList<String[]>();
-        final ArrayAdapter<String> ad = new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, new ArrayList<String>());
-        lv.setAdapter(ad);
-        final AlertDialog d = new AlertDialog.Builder(this).setTitle(alis ? "Tedarikçi seç" : "Müşteri seç").setView(k)
-                .setNegativeButton("Vazgeç", null).create();
-        lv.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-            @Override public void onItemClick(AdapterView<?> a, View v, int i, long id) {
-                cariKod = bulunan.get(i)[0];
-                cariAdi = bulunan.get(i)[1];
-                cariYazi.setText(cariAdi + "\n" + cariKod);
+        CariSecici.ac(this, alis ? "Tedarikçi seç" : "Müşteri seç", new CariSecici.Secildi() {
+            @Override public void sec(String kod, String unvan) {
+                cariKod = kod;
+                cariAdi = unvan;
+                cariYazi.setText(unvan + "\n" + kod);
                 cariYazi.setTextColor(0xFF1F2933);
-                d.dismiss();
                 dugmeyiAyarla();
             }
         });
-        final Runnable getir = new Runnable() {
-            @Override public void run() {
-                String q = ara.getText().toString().trim();
-                api.get("/api/cari?ilk=40" + (q.length() > 0 ? "&ara=" + kodla(q) : ""), new Api.Sonuc() {
-                    @Override public void tamam(String govde) {
-                        try {
-                            JSONArray a = new JSONArray(govde);
-                            bulunan.clear();
-                            ad.clear();
-                            for (int i = 0; i < a.length(); i++) {
-                                JSONObject c = a.getJSONObject(i);
-                                String kod = c.optString("kod").trim(), unvan = c.optString("unvan", c.optString("ad")).trim();
-                                bulunan.add(new String[]{kod, unvan});
-                                ad.add(unvan + "  ·  " + kod);
-                            }
-                            if (a.length() == 0) ad.add("Bulunamadı");
-                            ad.notifyDataSetChanged();
-                        } catch (Exception e) { hataGoster(e.getMessage()); }
-                    }
-                    @Override public void hata(int durum, String m) {
-                        durumGoster();
-                        ad.clear();
-                        ad.add(durum == 0 ? "Merkeze ulaşılamıyor: cari seçmek için bağlantı gerekir." : m);
-                        ad.notifyDataSetChanged();
-                        bulunan.clear();
-                    }
-                });
-            }
-        };
-        ara.setOnEditorActionListener(new TextView.OnEditorActionListener() {
-            @Override public boolean onEditorAction(TextView v, int id, KeyEvent e) { getir.run(); return true; }
-        });
-        ara.addTextChangedListener(new TextWatcher() {
-            @Override public void beforeTextChanged(CharSequence s, int a, int c, int dd) { }
-            @Override public void onTextChanged(CharSequence s, int a, int c, int dd) { }
-            @Override public void afterTextChanged(Editable s) { if (s.length() == 0 || s.length() >= 2) getir.run(); }
-        });
-        d.show();
-        getir.run();
     }
 
     // --- Depo ---

@@ -42,6 +42,8 @@ public static class Yetkiler
     public const string SayimOnay = "sayim_onay";
     public const string Kasa = "kasa";
     public const string Tediye = "tediye";
+    public const string SiparisTalep = "siparis_talep";
+    public const string SiparisOnay = "siparis_onay";
 
     public static readonly IReadOnlyList<(string Kod, string Ad)> Liste =
     [
@@ -59,6 +61,8 @@ public static class Yetkiler
         (Etiket, "Etiket basma"),
         (EtiketTasarim, "Etiket tasarımı"),
         (Siparis, "Sipariş (öneri, kayıt, gönderim)"),
+        (SiparisTalep, "Sipariş talebi (terminal; patron onayından sonra Mikro'ya)"),
+        (SiparisOnay, "Sipariş talebi onayı (miktar düzeltme, Mikro'ya aktarım)"),
         (Sayim, "Sayım yapma (terminal / bilgisayar)"),
         (SayimOnay, "Sayım düzeltme ve Mikro'ya onay"),
         (Kasa, "Kasa fişleri, bankaya yatırma, kasa föyü"),
@@ -68,7 +72,7 @@ public static class Yetkiler
     public static readonly string[] Tumu = Liste.Select(x => x.Kod).ToArray();
 
     /// <summary>Evrak ekranlarında cari seçebilmek için cari aramasını açan yetkiler.</summary>
-    public static readonly string[] CariArayabilir = [CariEkstre, CekGiris, CekCikis, AlisFatura, SatisFatura, Siparis, Kasa, Tediye];
+    public static readonly string[] CariArayabilir = [CariEkstre, CekGiris, CekCikis, AlisFatura, SatisFatura, Siparis, SiparisTalep, SiparisOnay, Kasa, Tediye];
 
     /// <summary>Yetkiler sütunu boşsa (eski kayıtlar) kullanıcı tipinin eski varsayılanı.</summary>
     public static string[] Varsayilan(string rol) => rol == Roller.Magaza ? [Sevk, Etiket] : Tumu;

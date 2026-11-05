@@ -18,9 +18,10 @@ import Satis from "./sayfalar/Satis";
 import Sayim from "./sayfalar/Sayim";
 import Sevk from "./sayfalar/Sevk";
 import Siparis from "./sayfalar/Siparis";
+import SiparisOnay from "./sayfalar/SiparisOnay";
 import Yonetim from "./sayfalar/Yonetim";
 
-type Sayfa = "hizli" | "ciro" | "satis" | "karlilik" | "cari" | "personel" | "cek" | "cekislem" | "fatura" | "kasa" | "sevk" | "siparis" | "sayim" | "fiyat" | "etiket" | "etikettasarim" | "yonetim";
+type Sayfa = "hizli" | "ciro" | "satis" | "karlilik" | "cari" | "personel" | "cek" | "cekislem" | "fatura" | "kasa" | "sevk" | "siparis" | "siparisonay" | "sayim" | "fiyat" | "etiket" | "etikettasarim" | "yonetim";
 // Her sayfa, listelenen yetkilerden birine sahip kullanıcıya görünür (admin hepsini görür). Menüde gruba göre sıralanır.
 const SAYFALAR: { id: Sayfa; ad: string; yetki: string[]; grup: string; ikon: IkonAdi }[] = [
   { id: "ciro", ad: "Günün cirosu", yetki: ["ciro"], grup: "Raporlar", ikon: "ciro" },
@@ -35,6 +36,7 @@ const SAYFALAR: { id: Sayfa; ad: string; yetki: string[]; grup: string; ikon: Ik
   { id: "kasa", ad: "Kasa ve ödemeler", yetki: ["kasa", "tediye"], grup: "Evrak", ikon: "nakit" },
   { id: "sevk", ad: "Depolar arası sevk", yetki: ["sevk"], grup: "Evrak", ikon: "sevk" },
   { id: "siparis", ad: "Sipariş", yetki: ["siparis"], grup: "Evrak", ikon: "siparis" },
+  { id: "siparisonay", ad: "Sipariş onayı", yetki: ["siparis_onay", "siparis_talep"], grup: "Evrak", ikon: "siparis" },
   { id: "sayim", ad: "Sayım", yetki: ["sayim", "sayim_onay"], grup: "Evrak", ikon: "sayim" },
   { id: "fiyat", ad: "Fiyat değişikliği", yetki: ["fiyat_degisikligi"], grup: "Stok ve etiket", ikon: "fiyat" },
   { id: "etiket", ad: "Etiket bas", yetki: ["etiket"], grup: "Stok ve etiket", ikon: "etiket" },
@@ -112,6 +114,7 @@ export default function App() {
         {aktif?.id === "kasa" && <Kasa oturum={oturum} ilkSekme={sekme} />}
         {aktif?.id === "sevk" && <Sevk depoNo={depoKilidi} />}
         {aktif?.id === "siparis" && <Siparis depoNo={depoKilidi} />}
+        {aktif?.id === "siparisonay" && <SiparisOnay onayYetkisi={yetkili(oturum, "siparis_onay")} />}
         {aktif?.id === "sayim" && <Sayim oturum={oturum} depoNo={depoKilidi} />}
         {aktif?.id === "fiyat" && <Fiyat />}
         {aktif?.id === "etiket" && <Etiket />}

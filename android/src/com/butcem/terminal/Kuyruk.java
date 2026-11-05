@@ -138,6 +138,7 @@ final class Kuyruk {
             JSONObject r = new JSONObject(cevap);
             if ("sevk".equals(tur)) return "sevk fişi " + r.optString("seri") + " " + r.optInt("sira");
             if ("etiket".equals(tur)) return r.optInt("basilacak") + " etiket yazıcıya gönderildi";
+            if ("siparis_talep".equals(tur)) return "talep " + r.optInt("id") + ", patron onayında";
             if (tur != null && (tur.startsWith("alis_") || tur.startsWith("satis_")))
                 return EvrakActivity.ad(tur).toLowerCase(new Locale("tr", "TR")) + " " + r.optString("seri") + " " + r.optInt("sira")
                         + (r.has("toplam") ? ", toplam " + Ui.para(r.optDouble("toplam")) + " ₺" : "");

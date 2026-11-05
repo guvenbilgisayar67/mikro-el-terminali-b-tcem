@@ -106,6 +106,7 @@ PersonelFoyu.Map(app);
 Faturalar.Map(app);
 FiyatDegisikligi.Map(app);
 Siparisler.Map(app);
+SiparisTalepleri.Map(app);
 Sayim.Map(app);
 
 app.MapFallbackToFile("index.html");

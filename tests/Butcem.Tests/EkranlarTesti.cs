@@ -29,6 +29,7 @@ public sealed class EkranlarTesti(ApiFabrikasi api)
         "/api/fatura/bekleyen-irsaliyeler",
         "/api/fatura/alis-faturalari",
         "/api/fatura/urun-ara?q=su",
+        "/api/siparis-talep",
         "/api/kasa/kasalar",
         "/api/kasa/bankalar",
         "/api/kasa/hesap-ara?cins=4",

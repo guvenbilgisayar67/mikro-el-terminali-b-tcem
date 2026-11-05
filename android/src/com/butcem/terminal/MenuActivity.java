@@ -88,6 +88,9 @@ public class MenuActivity extends Activity implements Kuyruk.Dinleyici {
         if (api.yetkili("satis_fatura")) kutu("📤", Color.rgb(232, 240, 254), "Satış", null, new Runnable() {
             @Override public void run() { altMenu("satis"); }
         });
+        if (api.yetkili("siparis_talep") || api.yetkili("siparis_onay")) kutu("🛒", Color.rgb(237, 233, 254), "Siparişler", null, new Runnable() {
+            @Override public void run() { altMenu("siparis"); }
+        });
         if (api.yetkili("sevk")) kutu("🚚", Color.rgb(255, 244, 229), "Depolar arası sevk", null, new Runnable() {
             @Override public void run() { startActivity(new Intent(MenuActivity.this, SevkActivity.class)); }
         });

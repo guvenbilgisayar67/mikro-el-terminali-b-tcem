@@ -195,6 +195,44 @@ CREATE TABLE dbo.EtiketSablonlari (
 );
 GO
 
+/* v0.10: onaylı sipariş. Mağaza (terminal) talep verir, sipariş onay yetkisi olan kişi miktarları düzeltip onaylar;
+   onayda Mikro'ya sipariş evrakı yazılır (satırdaki Seri / Sira). */
+IF OBJECT_ID(N'dbo.SiparisTalepleri') IS NULL
+CREATE TABLE dbo.SiparisTalepleri (
+    Id          int IDENTITY(1,1) PRIMARY KEY,
+    Tur         nvarchar(10) NOT NULL,             -- planli, plansiz
+    Depo        int NOT NULL,
+    Aciklama    nvarchar(200) NULL,
+    Durum       nvarchar(12) NOT NULL DEFAULT N'bekliyor',   -- bekliyor, onaylandi, reddedildi
+    OlusturanId int NULL,
+    Zaman       datetime2 NOT NULL DEFAULT SYSDATETIME(),
+    OnaylayanId int NULL,
+    OnayZamani  datetime2 NULL,
+    RedSebebi   nvarchar(200) NULL
+);
+GO
+IF OBJECT_ID(N'dbo.SiparisTalepSatirlari') IS NULL
+CREATE TABLE dbo.SiparisTalepSatirlari (
+    Id            int IDENTITY(1,1) PRIMARY KEY,
+    TalepId       int NOT NULL REFERENCES dbo.SiparisTalepleri(Id),
+    StokKodu      nvarchar(25) NOT NULL,
+    UrunAdi       nvarchar(127) NOT NULL,
+    Birim         nvarchar(10) NOT NULL DEFAULT N'',
+    KaynakTur     nvarchar(10) NOT NULL,           -- tedarikci, depo
+    KaynakKod     nvarchar(25) NOT NULL,           -- cari kodu ya da depo no; boş: patron seçecek
+    KaynakAd      nvarchar(127) NULL,
+    Oneri         decimal(18,3) NULL,              -- planlı siparişte önerilen miktar
+    IstenenMiktar decimal(18,3) NOT NULL,
+    OnayMiktar    decimal(18,3) NULL,              -- patronun miktarı (0: çıkarıldı)
+    BirimFiyat    decimal(18,4) NULL,              -- tedarikçide son alış (KDV hariç)
+    Seri          nvarchar(20) NULL,               -- Mikro'ya yazılan sipariş
+    Sira          int NULL
+);
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_SiparisTalepSatirlari_Talep')
+    CREATE INDEX IX_SiparisTalepSatirlari_Talep ON dbo.SiparisTalepSatirlari (TalepId);
+GO
+
 /* İlk yönetici. Şifre: Butcem2026!  — ilk girişten sonra değiştirin. */
 IF NOT EXISTS (SELECT 1 FROM dbo.Kullanicilar WHERE KullaniciAdi = N'admin')
 INSERT INTO dbo.Kullanicilar (KullaniciAdi, SifreHash, AdSoyad, Rol)

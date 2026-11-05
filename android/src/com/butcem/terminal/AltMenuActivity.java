@@ -22,16 +22,19 @@ public class AltMenuActivity extends Activity {
             { "alis", "Bekleyen irsaliye → fatura", "🔗", "bekleyen" },
             { "satis", "Satış faturası", "🧾", EvrakActivity.SATIS_FATURASI },
             { "satis", "Toptan satış irsaliyesi", "📦", "" },
+            { "siparis", "Planlı sipariş", "📊", "siparis_planli" },
+            { "siparis", "Plansız sipariş", "✍️", "siparis_plansiz" },
+            { "siparis", "Verilen siparişler", "📑", "siparis_liste" },
     };
 
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         final String grup = getIntent().getStringExtra("grup");
-        boolean alis = "alis".equals(grup);
-        setTitle(alis ? "Alış" : "Satış");
+        boolean alis = "alis".equals(grup), siparis = "siparis".equals(grup);
+        setTitle(alis ? "Alış" : siparis ? "Siparişler" : "Satış");
         if (getActionBar() != null) getActionBar().setDisplayHomeAsUpEnabled(true);
-        int renk = alis ? Color.rgb(230, 244, 238) : Color.rgb(232, 240, 254);
+        int renk = alis ? Color.rgb(230, 244, 238) : siparis ? Color.rgb(237, 233, 254) : Color.rgb(232, 240, 254);
 
         LinearLayout l = Ui.dikey(this);
         int p = Ui.dp(this, 14);
@@ -64,6 +67,11 @@ public class AltMenuActivity extends Activity {
             return;
         }
         if ("bekleyen".equals(a[3])) { startActivity(new Intent(this, BekleyenIrsaliyeActivity.class)); return; }
+        if ("siparis_liste".equals(a[3])) { startActivity(new Intent(this, SiparisListeActivity.class)); return; }
+        if (a[3].startsWith("siparis_")) {
+            startActivity(new Intent(this, SiparisActivity.class).putExtra("tur", a[3].substring(8)));
+            return;
+        }
         startActivity(new Intent(this, EvrakActivity.class).putExtra("tur", a[3]));
     }
 

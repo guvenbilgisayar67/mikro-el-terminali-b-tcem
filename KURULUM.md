@@ -120,6 +120,15 @@ tediye için *Tediye* yetkisi verin; personel föyü *Cari ekstre* yetkisiyle g�
 kaydı girdikten sonra Mikro'da açıp kontrol edin.
 v0.9.1 (yalnız `ButcemApi` değişir, SQL yok): el terminali 0.6.0 ile birlikte gelir. Fatura ve irsaliye kayıtları
 terminalden tekrar gönderilse de Mikro'ya bir kez yazılır.
+v0.10 (el terminali 0.7.0): **onaylı sipariş**. `sql/01_butcem_app.sql` bir kez daha çalıştırılır (sipariş talebi için
+iki tablo ekler). Mağaza personeline Yönetim'den *Sipariş talebi*, patrona *Sipariş talebi onayı* yetkisi verin.
+Terminalde **Siparişler** kutusu: *Planlı sipariş* (satışa göre öneri listesi gelir, miktarlar düzeltilir; her ürün
+son geldiği tedarikçiye / depoya), *Plansız sipariş* (tedarikçi ya da depo seçilir, ürünler okutulur) ve *Verilen
+siparişler* (durumu: onay bekliyor / onaylandı / reddedildi). Talepler Mikro'ya hemen yazılmaz; panelde **Sipariş
+onayı** sayfasında patron miktarları artırıp azaltır (0: çıkar), ürün ekler, kaynağı bilinmeyen ürüne tedarikçi seçer ve
+**Onayla ve Mikro'ya aktar** der. Her tedarikçi ve depo için ayrı Mikro siparişi oluşur (belge no `TALEP-<no>`); e-posta /
+WhatsApp gönderimi Sipariş sayfasındaki "Verilen siparişler" sekmesinden yapılır. Panelin Sipariş sayfasındaki
+doğrudan kayıt (*Sipariş* yetkisi) aynen çalışır.
 
 Sevk maliyeti ürünün son alış fiyatıdır (iskontolar düşülmüş). Mikro bazı sevklerde farklı bir maliyet
 önerebiliyor; bu yalnız maliyet raporunu etkiler, stok miktarını ve cariyi etkilemez.
@@ -297,6 +306,8 @@ olarak doğru çıkar.
    Sayım: *Sayım yapma*). **Gönder**, cihazda bekleyen işlemleri hemen merkeze yollar.
    - **Alış** içinde: *Alış faturası*, *Toptan alış irsaliyesi*, *Bekleyen irsaliye → fatura*.
    - **Satış** içinde: *Satış faturası*; *Toptan satış irsaliyesi* Mikro'daki örnek evrakla doğrulanınca açılacak.
+   - **Siparişler** içinde (0.7.0; yetki *Sipariş talebi*): *Planlı sipariş*, *Plansız sipariş*, *Verilen siparişler*.
+     Sipariş patron onayından sonra Mikro'ya aktarılır (yükseltme notlarındaki v0.10 paragrafı).
    - Evrak ekranı: üstte cari (dokunup ünvanla aranır), depo (mağaza kullanıcısında kendi deposu) ve fatura /
      irsaliye no; altta okutulan ürünler (kod, ad, birim, miktar, fiyat). Her okutma 1 ekler; satıra dokunarak
      miktar ve fiyat değişir, satır silinir. Alışta fiyat son alış fiyatıdır (KDV hariç), satışta satış listesi
