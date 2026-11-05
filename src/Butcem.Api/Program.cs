@@ -101,6 +101,7 @@ EtiketBaskisi.Map(app);
 EtiketTasarimlari.Map(app);
 DepoSevk.Map(app);
 CekIslemleri.Map(app);
+KasaIslemleri.Map(app);
 Faturalar.Map(app);
 FiyatDegisikligi.Map(app);
 Siparisler.Map(app);

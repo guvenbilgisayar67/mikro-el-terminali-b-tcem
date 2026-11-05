@@ -11,7 +11,7 @@ const GRUPLAR: { ad: string; programlar: Program[] }[] = [
     ad: "",
     programlar: [
       { ad: "Alış Faturası", kod: "062205", tip: "Evrak", hedef: "fatura/alis", yetki: ["alis_fatura"] },
-      { ad: "Tediye Makbuzu", kod: "042210", tip: "Evrak", yetki: [], not: "Hazırlanıyor" },
+      { ad: "Tediye Makbuzu", kod: "042210", tip: "Evrak", hedef: "kasa/tediye", yetki: ["tediye"], not: "Havale ile ödeme" },
       { ad: "Cari Hesap Hareket Föyü", kod: "041410", tip: "Föy", hedef: "cari", yetki: ["cari_ekstre"], not: "Cari ekstre ekranı" },
       { ad: "Alış Faturaları Yönetimi", kod: "028012", tip: "Evrak", hedef: "fatura/alisfaturalari", yetki: ["alis_fatura"] },
       { ad: "Çek Çıkış Bordrosu", kod: "072410", tip: "Evrak", hedef: "cekislem", yetki: ["cek_cikis"], not: "Çek giriş / çıkış ekranı" },
@@ -20,10 +20,10 @@ const GRUPLAR: { ad: string; programlar: Program[] }[] = [
   {
     ad: "Kasa",
     programlar: [
-      { ad: "Kasa Tahsilat Fişi", kod: "051100", tip: "Evrak", yetki: [], not: "Hazırlanıyor" },
-      { ad: "Kasadan Bankaya Nakit Yatırma Makbuzu", kod: "072520", tip: "Evrak", yetki: [], not: "Hazırlanıyor" },
-      { ad: "Kasa Ödeme Fişi", kod: "051200", tip: "Evrak", yetki: [], not: "Hazırlanıyor" },
-      { ad: "Kasa Hareket Föyü", kod: "051400", tip: "Föy", yetki: [], not: "Hazırlanıyor" },
+      { ad: "Kasa Tahsilat Fişi", kod: "051100", tip: "Evrak", hedef: "kasa/tahsilat", yetki: ["kasa"] },
+      { ad: "Kasadan Bankaya Nakit Yatırma Makbuzu", kod: "072520", tip: "Evrak", hedef: "kasa/bankaya", yetki: ["kasa"] },
+      { ad: "Kasa Ödeme Fişi", kod: "051200", tip: "Evrak", hedef: "kasa/odeme", yetki: ["kasa"] },
+      { ad: "Kasa Hareket Föyü", kod: "051400", tip: "Föy", hedef: "kasa/foy", yetki: ["kasa"] },
     ],
   },
   {

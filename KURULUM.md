@@ -88,6 +88,9 @@ Ne yazılır (Mikro'nun kendi evraklarıyla alan alan karşılaştırıldı):
 | Çek çıkışı | Çek çıkış bordrosu (67): müşteri çeki ciro, ya da kendi çekimiz | CARI_HESAP_HAREKETLERI, ODEME_EMIRLERI |
 | Alış irsaliyesi | Alış irsaliyesi (13) | STOK_HAREKETLERI |
 | Alış faturası (doğrudan, Mikro 062205) | Giriş faturası (3) + alış faturası (0), aynı sıra no; aynı tedarikçide aynı fatura no reddedilir | STOK_HAREKETLERI, CARI_HESAP_HAREKETLERI |
+| Kasa tahsilat / ödeme fişi (Mikro 051100 / 051200) | Evrak tipi 2 / 65; satır başına bir cari satırı, karşı hesap cari, kasa ya da masraf | CARI_HESAP_HAREKETLERI |
+| Kasadan bankaya yatırma (Mikro 072520) | Evrak tipi 8; banka borç, kasa çıkış | CARI_HESAP_HAREKETLERI |
+| Tediye makbuzu, havale (Mikro 042210) | Evrak tipi 64, cinsi 20; firma havale emri (FH-…) | CARI_HESAP_HAREKETLERI, ODEME_EMIRLERI |
 | Bekleyen irsaliyeler | İrsaliyeden alış faturası (0) | CARI_HESAP_HAREKETLERI (+ irsaliyeye bağlantı) |
 | Satış faturası | Satış faturası (4 / 63) | STOK_HAREKETLERI, CARI_HESAP_HAREKETLERI, E_FATURA_ISLEMLERI |
 | Fiyat değişikliği | Fiyat değişiklik fişi, 1 numaralı satış fiyatı, tüm depolar | STOK_FIYAT_DEGISIKLIKLERI, STOK_SATIS_FIYAT_LISTELERI (+ STOKLAR değişti zamanı) |
