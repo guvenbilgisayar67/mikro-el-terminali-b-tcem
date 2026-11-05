@@ -87,6 +87,7 @@ Ne yazılır (Mikro'nun kendi evraklarıyla alan alan karşılaştırıldı):
 | Çek girişi | Müşteri çeki giriş bordrosu (4), ÇEK KASASI'nda portföy | CARI_HESAP_HAREKETLERI, ODEME_EMIRLERI |
 | Çek çıkışı | Çek çıkış bordrosu (67): müşteri çeki ciro, ya da kendi çekimiz | CARI_HESAP_HAREKETLERI, ODEME_EMIRLERI |
 | Alış irsaliyesi | Alış irsaliyesi (13) | STOK_HAREKETLERI |
+| Alış faturası (doğrudan, Mikro 062205) | Giriş faturası (3) + alış faturası (0), aynı sıra no; aynı tedarikçide aynı fatura no reddedilir | STOK_HAREKETLERI, CARI_HESAP_HAREKETLERI |
 | Bekleyen irsaliyeler | İrsaliyeden alış faturası (0) | CARI_HESAP_HAREKETLERI (+ irsaliyeye bağlantı) |
 | Satış faturası | Satış faturası (4 / 63) | STOK_HAREKETLERI, CARI_HESAP_HAREKETLERI, E_FATURA_ISLEMLERI |
 | Fiyat değişikliği | Fiyat değişiklik fişi, 1 numaralı satış fiyatı, tüm depolar | STOK_FIYAT_DEGISIKLIKLERI, STOK_SATIS_FIYAT_LISTELERI (+ STOKLAR değişti zamanı) |

@@ -266,3 +266,10 @@ table.ic td:first-child { min-width: 160px; }
 .depo-gelis > div > b { font-weight: 500; color: var(--yazi); }
 .depo-gelis > div.bu > * { color: var(--yazi); font-weight: 700; }
 .depo-gelis .pill { font-size: 10.5px; padding: 1px 6px; }
+
+/* Evrak satır girişi (üstte kod / ad / birim / miktar / fiyat, Enter ile ekler) */
+.satir-giris { background: var(--yuzey); border: 1px solid var(--cizgi); border-radius: 12px; padding: 10px 12px; }
+.satir-giris input.urun-adi { width: 260px; background: var(--zemin); }
+.satir-giris input.birim { width: 70px; background: var(--zemin); }
+.satir-giris .cari-sec input { width: 220px; }
+table tfoot td { font-weight: 600; border-top: 2px solid var(--cizgi); }
