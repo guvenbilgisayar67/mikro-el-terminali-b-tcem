@@ -34,6 +34,8 @@ public sealed class EkranlarTesti(ApiFabrikasi api)
         "/api/kasa/hesap-ara?cins=4",
         "/api/kasa/hesap-ara?cins=5",
         "/api/kasa/foy?kasa=100.001",
+        "/api/personel",
+        "/api/personel/335.027/foy",
         "/api/fiyat",
         "/api/etiket/degisenler",
         "/api/etiket/yazicilar",

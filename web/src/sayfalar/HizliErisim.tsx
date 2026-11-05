@@ -30,7 +30,7 @@ const GRUPLAR: { ad: string; programlar: Program[] }[] = [
     ad: "Personel",
     programlar: [
       { ad: "Fiyat Değişikliği Fişi", kod: "031200", tip: "Evrak", hedef: "fiyat", yetki: ["fiyat_degisikligi"] },
-      { ad: "Cari Personel Hareket Föyü", kod: "041436", tip: "Föy", yetki: [], not: "Hazırlanıyor" },
+      { ad: "Cari Personel Hareket Föyü", kod: "041436", tip: "Föy", hedef: "personel", yetki: ["cari_ekstre"], not: "Personel föyü ekranı" },
     ],
   },
 ];

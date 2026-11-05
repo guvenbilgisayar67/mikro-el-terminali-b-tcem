@@ -10,6 +10,7 @@ import EtiketTasarim from "./sayfalar/EtiketTasarim";
 import Fatura from "./sayfalar/Fatura";
 import Fiyat from "./sayfalar/Fiyat";
 import Karlilik from "./sayfalar/Karlilik";
+import PersonelFoy from "./sayfalar/PersonelFoy";
 import Kasa from "./sayfalar/Kasa";
 import Giris from "./sayfalar/Giris";
 import HizliErisim from "./sayfalar/HizliErisim";
@@ -19,13 +20,14 @@ import Sevk from "./sayfalar/Sevk";
 import Siparis from "./sayfalar/Siparis";
 import Yonetim from "./sayfalar/Yonetim";
 
-type Sayfa = "hizli" | "ciro" | "satis" | "karlilik" | "cari" | "cek" | "cekislem" | "fatura" | "kasa" | "sevk" | "siparis" | "sayim" | "fiyat" | "etiket" | "etikettasarim" | "yonetim";
+type Sayfa = "hizli" | "ciro" | "satis" | "karlilik" | "cari" | "personel" | "cek" | "cekislem" | "fatura" | "kasa" | "sevk" | "siparis" | "sayim" | "fiyat" | "etiket" | "etikettasarim" | "yonetim";
 // Her sayfa, listelenen yetkilerden birine sahip kullanıcıya görünür (admin hepsini görür). Menüde gruba göre sıralanır.
 const SAYFALAR: { id: Sayfa; ad: string; yetki: string[]; grup: string; ikon: IkonAdi }[] = [
   { id: "ciro", ad: "Günün cirosu", yetki: ["ciro"], grup: "Raporlar", ikon: "ciro" },
   { id: "satis", ad: "Satış raporu", yetki: ["satis_raporu"], grup: "Raporlar", ikon: "rapor" },
   { id: "karlilik", ad: "Karlılık analizi", yetki: ["karlilik"], grup: "Raporlar", ikon: "kar" },
   { id: "cari", ad: "Cari ekstre", yetki: ["cari_ekstre"], grup: "Raporlar", ikon: "cari" },
+  { id: "personel", ad: "Personel föyü", yetki: ["cari_ekstre"], grup: "Raporlar", ikon: "cari" },
   { id: "cek", ad: "Çek raporu", yetki: ["cek_raporu"], grup: "Raporlar", ikon: "cek" },
   { id: "hizli", ad: "Mikro hızlı erişim", yetki: ["alis_fatura", "cari_ekstre", "cek_cikis", "fiyat_degisikligi", "kasa", "tediye"], grup: "Evrak", ikon: "fatura" },
   { id: "cekislem", ad: "Çek giriş / çıkış", yetki: ["cek_giris", "cek_cikis"], grup: "Evrak", ikon: "cek" },
@@ -103,6 +105,7 @@ export default function App() {
         {aktif?.id === "satis" && <Satis depoKilitli={depoKilidi != null} />}
         {aktif?.id === "karlilik" && <Karlilik depoKilitli={depoKilidi != null} />}
         {aktif?.id === "cari" && <Cari />}
+        {aktif?.id === "personel" && <PersonelFoy />}
         {aktif?.id === "cek" && <Cek />}
         {aktif?.id === "cekislem" && <CekIslem oturum={oturum} />}
         {aktif?.id === "fatura" && <Fatura depoNo={depoKilidi} oturum={oturum} ilkSekme={sekme} />}

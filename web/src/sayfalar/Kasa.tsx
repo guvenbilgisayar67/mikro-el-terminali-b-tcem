@@ -275,7 +275,7 @@ function KasaFoyu() {
             {v.hareketler.length === 0 && <tr><td colSpan={9} className="bos">Bu dönemde hareket yok.</td></tr>}
             {v.hareketler.map((h) => (
               <tr key={h.guid}>
-                <td>{tarih(h.tarih)}</td><td>{h.evrak}</td><td>{h.evrakAdi}</td><td>{h.belgeNo}</td><td>{h.karsiHesap}</td><td>{h.aciklama}</td>
+                <td>{tarih(h.tarih)}</td><td>{h.evrak}</td><td>{h.evrakAdi}</td><td>{h.belgeNo}</td><td style={{ whiteSpace: "normal" }}>{h.karsiHesap}</td><td style={{ whiteSpace: "normal" }}>{h.aciklama}</td>
                 <td className="s">{h.giris ? para(h.giris) : ""}</td><td className="s">{h.cikis ? para(h.cikis) : ""}</td><td className="s">{para(h.bakiye)}</td>
               </tr>
             ))}
