@@ -129,6 +129,12 @@ onayı** sayfasında patron miktarları artırıp azaltır (0: çıkar), ürün 
 **Onayla ve Mikro'ya aktar** der. Her tedarikçi ve depo için ayrı Mikro siparişi oluşur (belge no `TALEP-<no>`); e-posta /
 WhatsApp gönderimi Sipariş sayfasındaki "Verilen siparişler" sekmesinden yapılır. Panelin Sipariş sayfasındaki
 doğrudan kayıt (*Sipariş* yetkisi) aynen çalışır.
+v0.11 (el terminali 0.8.0, SQL yok): **evrak fotoğrafları**. Terminalde alış faturası, toptan alış irsaliyesi, satış
+faturası ve depolar arası sevk ekranlarında **📷 Fotoğraf ekle** vardır. Fotoğraf evrakla birlikte gönderilir (bağlantı
+yoksa cihazda bekler), Mikro'ya aktarılmaz ve veritabanına yazılmaz: sunucuda `ButcemApi` klasörünün yanındaki
+`ButcemFotograflari` klasörüne `tür\seri_sıra\` altında JPEG olarak kaydedilir (yaklaşık 200-400 KB). Başka bir
+klasör / disk için `appsettings.json` içinde `"Fotograflar": { "Klasor": "D:\\ButcemFotograflari" }` yazın. Panelde
+**Evrak fotoğrafları** sayfasından tür, tarih ve evrak sıra no ile bakılır. Bu klasörü yedeklemeye ekleyin.
 
 Sevk maliyeti ürünün son alış fiyatıdır (iskontolar düşülmüş). Mikro bazı sevklerde farklı bir maliyet
 önerebiliyor; bu yalnız maliyet raporunu etkiler, stok miktarını ve cariyi etkilemez.

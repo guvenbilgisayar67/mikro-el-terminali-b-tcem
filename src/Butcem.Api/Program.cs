@@ -114,6 +114,7 @@ Faturalar.Map(app);
 FiyatDegisikligi.Map(app);
 Siparisler.Map(app);
 SiparisTalepleri.Map(app);
+Fotograflar.Map(app);
 Sayim.Map(app);
 
 app.MapFallbackToFile("index.html");

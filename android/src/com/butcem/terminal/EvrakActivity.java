@@ -49,6 +49,7 @@ public class EvrakActivity extends Activity implements Kuyruk.Dinleyici {
     static final String SATIS_FATURASI = "satis_faturasi";
 
     private Api api;
+    private FotoAlani foto;
     private Yerel yerel;
     private String tur;
     private boolean alis;
@@ -181,6 +182,8 @@ public class EvrakActivity extends Activity implements Kuyruk.Dinleyici {
         kaydetDugmesi.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { onayla(); }
         });
+        foto = new FotoAlani(this);
+        l.addView(foto.gorunum(), Ui.genis(this, 10));
         l.addView(kaydetDugmesi, Ui.genis(this, 10));
 
         ScrollView sv = new ScrollView(this);
@@ -430,15 +433,19 @@ public class EvrakActivity extends Activity implements Kuyruk.Dinleyici {
             kaydediliyor = true;
             dugmeyiAyarla();
             bilgi("Kaydediliyor…");
-            Kuyruk.isle(this, tur, yol(), o, ozetMetni, new Api.Sonuc() {
+            final String[] evrakId = new String[1];
+            final java.util.List<java.io.File> fotolar = foto.dosyalar();
+            evrakId[0] = Kuyruk.isle(this, tur, yol(), o, ozetMetni, new Api.Sonuc() {
                 @Override public void tamam(String govde) {
                     kaydediliyor = false;
+                    fotograflariGonder(evrakId[0], fotolar, ozetMetni);
                     temizle();
                     bilgi("Kaydedildi: " + Kuyruk.sonucMetni(tur, govde) + ".");
                 }
                 @Override public void hata(int d, String m) {
                     kaydediliyor = false;
                     if (Kuyruk.tekrarDenenir(d)) {
+                        fotograflariGonder(evrakId[0], fotolar, ozetMetni);
                         temizle();
                         bilgi("Merkeze ulaşılamadı. Evrak cihazda kaydedildi; bağlantı gelince ya da Gönder'e basınca Mikro'ya gönderilecek.");
                         return;
@@ -470,6 +477,22 @@ public class EvrakActivity extends Activity implements Kuyruk.Dinleyici {
     }
 
     @Override public void onBackPressed() { cik(); }
+
+    @Override protected void onDestroy() {
+        super.onDestroy();
+        if (isFinishing()) foto.sil();
+    }
+
+    @Override protected void onActivityResult(int istek, int durum, Intent veri) {
+        if (!foto.sonuc(istek, durum)) super.onActivityResult(istek, durum, veri);
+    }
+
+    /** Evrak merkeze ulaştı ya da cihazda sıraya girdi: fotoğrafları da sıraya koy (evraktan sonra gider). */
+    private void fotograflariGonder(String evrakId, java.util.List<java.io.File> fotolar, String ad) {
+        if (evrakId == null || fotolar.isEmpty()) return;
+        Kuyruk.fotograflariGonder(this, evrakId, tur, ad, fotolar);
+        foto.birak();
+    }
 
     @Override public boolean onOptionsItemSelected(MenuItem i) {
         if (i.getItemId() == android.R.id.home) cik();

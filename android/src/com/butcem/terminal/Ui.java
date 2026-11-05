@@ -81,7 +81,9 @@ final class Ui {
     }
 
     static LinearLayout.LayoutParams agirlik(Context c, float w, int solBosluk) {
-        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, w);
+        // Ağırlık 0: kendi genişliği (0 genişlik + 0 ağırlık görünmez olurdu).
+        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(w == 0 ? LinearLayout.LayoutParams.WRAP_CONTENT : 0,
+                LinearLayout.LayoutParams.WRAP_CONTENT, w);
         p.leftMargin = dp(c, solBosluk);
         return p;
     }

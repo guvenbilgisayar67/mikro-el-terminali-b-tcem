@@ -64,25 +64,72 @@ final class Kuyruk {
      * tamam → merkez yaptı; hata(0 / 5xx / 401) → cihazda bekliyor, sonra gönderilecek;
      * diğer hata → merkez kabul etmedi (doğrulama), kayıt silinir ki kullanıcı düzeltip yeniden göndersin.
      */
-    static void isle(final Activity a, String tur, String yol, JSONObject govde, String ozet, final Api.Sonuc s) {
+    static String isle(final Activity a, String tur, String yol, JSONObject govde, String ozet, final Api.Sonuc s) {
         uyg = a.getApplicationContext();
         final Yerel yerel = Yerel.al(uyg);
         final Yerel.Bekleyen b = yerel.bekleyenEkle(tur, yol, govde.toString(), ozet);
+        String g = hazirla(b);
+        if (g == null) { yerel.bekleyenSil(b.id); s.hata(400, "Fotoğraf dosyası bulunamadı."); return b.id; }
         yolda.add(b.id);
-        new Api(uyg).postIslem(yol, b.govde, b.id, new Api.Sonuc() {
+        new Api(uyg).postIslem(yol, g, b.id, new Api.Sonuc() {
             @Override public void tamam(String cevap) {
                 yolda.remove(b.id);
                 yerel.bekleyenSonuc(b.id, Yerel.GONDERILDI, sonucMetni(b.tur, cevap));
+                bitti(b);
                 s.tamam(cevap);
                 bildir(null);
             }
             @Override public void hata(int durum, String m) {
                 yolda.remove(b.id);
-                if (!tekrarDenenir(durum)) yerel.bekleyenSil(b.id);
+                if (!tekrarDenenir(durum)) { yerel.bekleyenSil(b.id); bitti(b); }
                 s.hata(durum, m);
                 bildir(null);
             }
         });
+        return b.id;
+    }
+
+    /**
+     * Evrakın fotoğraflarını kuyruğa ekler. Evrakın istemci kimliğiyle gider; merkez fotoğrafı evrakın seri/sırasına
+     * bağlar (evrak henüz işlenmediyse işlenince). Fotoğraf Mikro'ya gitmez, merkezde klasörde saklanır.
+     */
+    static void fotograflariGonder(Activity a, String evrakIstemciId, String tur, String evrakAdi, List<java.io.File> dosyalar) {
+        int i = 0;
+        for (java.io.File f : dosyalar) {
+            i++;
+            try {
+                JSONObject o = new JSONObject().put("tur", tur).put("evrakIstemciId", evrakIstemciId).put("dosya", f.getAbsolutePath());
+                isle(a, "fotograf", "/api/fotograf", o, evrakAdi + " · fotoğraf " + i, new Api.Sonuc() {
+                    @Override public void tamam(String g) { }
+                    @Override public void hata(int d, String m) { }
+                });
+            } catch (Exception ignored) { }
+        }
+    }
+
+    /** Gönderilecek gövde. Fotoğrafta cihazda yalnız dosya yolu durur; gönderirken dosya okunur. Dosya yoksa null. */
+    private static String hazirla(Yerel.Bekleyen b) {
+        if (!"fotograf".equals(b.tur)) return b.govde;
+        try {
+            JSONObject o = new JSONObject(b.govde);
+            java.io.File f = new java.io.File(o.getString("dosya"));
+            if (!f.exists()) return null;
+            byte[] veri = new byte[(int) f.length()];
+            java.io.FileInputStream in = new java.io.FileInputStream(f);
+            try { int n = 0; while (n < veri.length) { int r = in.read(veri, n, veri.length - n); if (r < 0) break; n += r; } }
+            finally { in.close(); }
+            o.remove("dosya");
+            o.put("veri", android.util.Base64.encodeToString(veri, android.util.Base64.NO_WRAP));
+            return o.toString();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /** Fotoğraf gönderildi ya da kabul edilmedi: cihazdaki dosya silinir. */
+    private static void bitti(Yerel.Bekleyen b) {
+        if (!"fotograf".equals(b.tur)) return;
+        try { new java.io.File(new JSONObject(b.govde).getString("dosya")).delete(); } catch (Exception ignored) { }
     }
 
     static boolean tekrarDenenir(int durum) { return durum == 0 || durum == 401 || durum >= 500; }
@@ -106,11 +153,19 @@ final class Kuyruk {
         if (api.token() == null) return;
         final Yerel.Bekleyen b = siradaki;
         gonderiliyor = true;
+        String g = hazirla(b);
+        if (g == null) {
+            yerel.bekleyenSonuc(b.id, Yerel.REDDEDILDI, "Fotoğraf dosyası cihazda bulunamadı.");
+            gonderiliyor = false;
+            ANA.post(new Runnable() { @Override public void run() { gonder(); } });
+            return;
+        }
         yolda.add(b.id);
-        api.postIslem(b.yol, b.govde, b.id, new Api.Sonuc() {
+        api.postIslem(b.yol, g, b.id, new Api.Sonuc() {
             @Override public void tamam(String cevap) {
                 yolda.remove(b.id);
                 gonderiliyor = false;
+                bitti(b);
                 yerel.bekleyenSonuc(b.id, Yerel.GONDERILDI, sonucMetni(b.tur, cevap));
                 bildir(b.ozet + " gönderildi" + ek(sonucMetni(b.tur, cevap)));
                 gonder();
@@ -120,6 +175,7 @@ final class Kuyruk {
                 gonderiliyor = false;
                 if (tekrarDenenir(durum)) { bildir(null); return; }
                 yerel.bekleyenSonuc(b.id, Yerel.REDDEDILDI, m);
+                bitti(b);
                 bildir(b.ozet + " merkezde kabul edilmedi: " + m);
                 gonder();
             }
@@ -138,6 +194,7 @@ final class Kuyruk {
             JSONObject r = new JSONObject(cevap);
             if ("sevk".equals(tur)) return "sevk fişi " + r.optString("seri") + " " + r.optInt("sira");
             if ("etiket".equals(tur)) return r.optInt("basilacak") + " etiket yazıcıya gönderildi";
+            if ("fotograf".equals(tur)) return r.optBoolean("bekliyor") ? "evrak işlenince bağlanacak" : "evraka eklendi";
             if ("siparis_talep".equals(tur)) return "talep " + r.optInt("id") + ", patron onayında";
             if (tur != null && (tur.startsWith("alis_") || tur.startsWith("satis_")))
                 return EvrakActivity.ad(tur).toLowerCase(new Locale("tr", "TR")) + " " + r.optString("seri") + " " + r.optInt("sira")

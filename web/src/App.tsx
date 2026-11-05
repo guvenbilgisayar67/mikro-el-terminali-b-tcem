@@ -6,6 +6,7 @@ import Cek from "./sayfalar/Cek";
 import CekIslem from "./sayfalar/CekIslem";
 import Ciro from "./sayfalar/Ciro";
 import Etiket from "./sayfalar/Etiket";
+import EvrakFoto from "./sayfalar/EvrakFoto";
 import EtiketTasarim from "./sayfalar/EtiketTasarim";
 import Fatura from "./sayfalar/Fatura";
 import Fiyat from "./sayfalar/Fiyat";
@@ -21,7 +22,7 @@ import Siparis from "./sayfalar/Siparis";
 import SiparisOnay from "./sayfalar/SiparisOnay";
 import Yonetim from "./sayfalar/Yonetim";
 
-type Sayfa = "hizli" | "ciro" | "satis" | "karlilik" | "cari" | "personel" | "cek" | "cekislem" | "fatura" | "kasa" | "sevk" | "siparis" | "siparisonay" | "sayim" | "fiyat" | "etiket" | "etikettasarim" | "yonetim";
+type Sayfa = "hizli" | "ciro" | "satis" | "karlilik" | "cari" | "personel" | "cek" | "cekislem" | "fatura" | "kasa" | "sevk" | "foto" | "siparis" | "siparisonay" | "sayim" | "fiyat" | "etiket" | "etikettasarim" | "yonetim";
 // Her sayfa, listelenen yetkilerden birine sahip kullanıcıya görünür (admin hepsini görür). Menüde gruba göre sıralanır.
 const SAYFALAR: { id: Sayfa; ad: string; yetki: string[]; grup: string; ikon: IkonAdi }[] = [
   { id: "ciro", ad: "Günün cirosu", yetki: ["ciro"], grup: "Raporlar", ikon: "ciro" },
@@ -35,6 +36,7 @@ const SAYFALAR: { id: Sayfa; ad: string; yetki: string[]; grup: string; ikon: Ik
   { id: "fatura", ad: "Fatura ve irsaliye", yetki: ["alis_fatura", "satis_fatura"], grup: "Evrak", ikon: "fatura" },
   { id: "kasa", ad: "Kasa ve ödemeler", yetki: ["kasa", "tediye"], grup: "Evrak", ikon: "nakit" },
   { id: "sevk", ad: "Depolar arası sevk", yetki: ["sevk"], grup: "Evrak", ikon: "sevk" },
+  { id: "foto", ad: "Evrak fotoğrafları", yetki: ["alis_fatura", "satis_fatura", "sevk"], grup: "Evrak", ikon: "fatura" },
   { id: "siparis", ad: "Sipariş", yetki: ["siparis"], grup: "Evrak", ikon: "siparis" },
   { id: "siparisonay", ad: "Sipariş onayı", yetki: ["siparis_onay", "siparis_talep"], grup: "Evrak", ikon: "siparis" },
   { id: "sayim", ad: "Sayım", yetki: ["sayim", "sayim_onay"], grup: "Evrak", ikon: "sayim" },
@@ -113,6 +115,7 @@ export default function App() {
         {aktif?.id === "fatura" && <Fatura depoNo={depoKilidi} oturum={oturum} ilkSekme={sekme} />}
         {aktif?.id === "kasa" && <Kasa oturum={oturum} ilkSekme={sekme} />}
         {aktif?.id === "sevk" && <Sevk depoNo={depoKilidi} />}
+        {aktif?.id === "foto" && <EvrakFoto />}
         {aktif?.id === "siparis" && <Siparis depoNo={depoKilidi} />}
         {aktif?.id === "siparisonay" && <SiparisOnay onayYetkisi={yetkili(oturum, "siparis_onay")} />}
         {aktif?.id === "sayim" && <Sayim oturum={oturum} depoNo={depoKilidi} />}
