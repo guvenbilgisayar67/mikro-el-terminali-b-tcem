@@ -55,14 +55,17 @@ public static partial class Faturalar
                 """, new { bas = ara + "%", desen = "%" + ara + "%" }));
         });
 
-        g.MapPost("/alis", (AlisFaturaIstek istek, ClaimsPrincipal user, MikroYazici yazici, IConfiguration config, IslemLogu log) =>
+        g.MapPost("/alis", (AlisFaturaIstek istek, HttpRequest req, Db db, ClaimsPrincipal user, MikroYazici yazici, IConfiguration config, IslemLogu log) =>
         {
             user.DepoYetkisi(istek.DepoNo);
             SatirKontrol(istek.Satirlar, istek.Tarih);
             if (string.IsNullOrWhiteSpace(istek.BelgeNo)) throw new IslemHatasi("Fatura numarasını (belge no) yazın.");
-            var sonuc = AlisFaturasi(yazici, config, istek);
-            log.Yaz(user.Id(), "alis_faturasi", new { istek, sonuc });
-            return Results.Ok(sonuc);
+            return TekrarKoruma.Calistir(req, db, "alis_faturasi", user.Id(), () =>
+            {
+                var sonuc = AlisFaturasi(yazici, config, istek);
+                log.Yaz(user.Id(), "alis_faturasi", new { istek, sonuc });
+                return sonuc;
+            });
         }).RequireYetki(Yetkiler.AlisFatura);
 
         // Alış faturaları yönetimi: dönemdeki alış ve alış iade faturaları (irsaliyeden faturalaştırılanlar dahil).

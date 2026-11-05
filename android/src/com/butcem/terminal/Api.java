@@ -41,6 +41,26 @@ public final class Api {
     public int depoNo() { return ayar.getInt("depoNo", 0); }
     public int sonYazici() { return ayar.getInt("yazici", 0); }
 
+    /** Ayarlar'da kaydedilen giriş bilgileri (personel yalnız "Giriş"e basar). */
+    public String kullaniciAdi() { return ayar.getString("kullaniciAdi", ""); }
+    public String sifre() { return ayar.getString("sifre", ""); }
+    public String ayarSifresi() { return ayar.getString("ayarSifresi", ""); }
+
+    public void girisBilgileriKaydet(String kullaniciAdi, String sifre, String ayarSifresi) {
+        ayar.edit().putString("kullaniciAdi", kullaniciAdi).putString("sifre", sifre).putString("ayarSifresi", ayarSifresi).apply();
+    }
+
+    public void girisYap(String kullaniciAdi, String sifre, Sonuc s) {
+        try {
+            JSONObject g = new JSONObject();
+            g.put("kullaniciAdi", kullaniciAdi);
+            g.put("sifre", sifre);
+            istek("POST", "/api/giris", g.toString(), null, s);
+        } catch (Exception e) {
+            s.hata(0, e.getMessage());
+        }
+    }
+
     public void sunucuKaydet(String s) {
         ayar.edit().putString("sunucu", s.trim().replaceAll("/+$", "")).apply();
     }

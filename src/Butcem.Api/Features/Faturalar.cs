@@ -58,13 +58,17 @@ public static partial class Faturalar
     {
         var g = app.MapGroup("/api/fatura").RequireYetki(Yetkiler.AlisFatura, Yetkiler.SatisFatura).WithTags("Fatura");
 
-        g.MapPost("/alis-irsaliyesi", (IrsaliyeIstek istek, ClaimsPrincipal user, MikroYazici yazici, IConfiguration config, IslemLogu log) =>
+        g.MapPost("/alis-irsaliyesi", (IrsaliyeIstek istek, HttpRequest req, Db db, ClaimsPrincipal user, MikroYazici yazici, IConfiguration config, IslemLogu log) =>
         {
             user.DepoYetkisi(istek.DepoNo);
             SatirKontrol(istek.Satirlar, istek.Tarih);
-            var sonuc = AlisIrsaliyesi(yazici, config, istek);
-            log.Yaz(user.Id(), "alis_irsaliyesi", new { istek, sonuc });
-            return Results.Ok(sonuc);
+            // Terminal çevrimdışı kaydedip sonra gönderebilir: aynı istemci kimliğiyle ikinci kez yazılmaz.
+            return TekrarKoruma.Calistir(req, db, "alis_irsaliyesi", user.Id(), () =>
+            {
+                var sonuc = AlisIrsaliyesi(yazici, config, istek);
+                log.Yaz(user.Id(), "alis_irsaliyesi", new { istek, sonuc });
+                return sonuc;
+            });
         }).RequireYetki(Yetkiler.AlisFatura);
 
         // Faturası henüz girilmemiş alış irsaliyeleri.
@@ -105,13 +109,16 @@ public static partial class Faturalar
 
         MapAlis(g);
 
-        g.MapPost("/satis", (SatisIstek istek, ClaimsPrincipal user, MikroYazici yazici, IConfiguration config, IslemLogu log) =>
+        g.MapPost("/satis", (SatisIstek istek, HttpRequest req, Db db, ClaimsPrincipal user, MikroYazici yazici, IConfiguration config, IslemLogu log) =>
         {
             user.DepoYetkisi(istek.DepoNo);
             SatirKontrol(istek.Satirlar, istek.Tarih);
-            var sonuc = Satis(yazici, config, istek);
-            log.Yaz(user.Id(), "satis_faturasi", new { istek, sonuc });
-            return Results.Ok(sonuc);
+            return TekrarKoruma.Calistir(req, db, "satis_faturasi", user.Id(), () =>
+            {
+                var sonuc = Satis(yazici, config, istek);
+                log.Yaz(user.Id(), "satis_faturasi", new { istek, sonuc });
+                return sonuc;
+            });
         }).RequireYetki(Yetkiler.SatisFatura);
     }
 
