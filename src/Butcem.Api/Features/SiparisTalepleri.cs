@@ -76,7 +76,7 @@ public static class SiparisTalepleri
         {
             if (user.MagazaKullanicisi()) depo = user.Depo();
             using var conn = db.App();
-            var liste = conn.Query<Ozet>(OzetSql + """
+            var liste = conn.Query<Ozet>(OzetSql + "\n" + """
                 WHERE (@durum IS NULL OR t.Durum = @durum) AND (@depo IS NULL OR t.Depo = @depo) AND t.Zaman >= @bas
                 ORDER BY CASE t.Durum WHEN 'bekliyor' THEN 0 ELSE 1 END, t.Zaman DESC
                 """, new { durum = string.IsNullOrWhiteSpace(durum) ? null : durum, depo, bas = (bas ?? DateTime.Today.AddDays(-60)).Date })
@@ -184,8 +184,7 @@ public static class SiparisTalepleri
             Fiyat = x.Tur == Siparisler.Tedarikci ? Math.Round(MikroEvrak.SonAlisFiyati(mikro, null, x.Stok.Kod, bugun), 4) : null,
         }).ToList();
 
-        using var conn = db.App();
-        conn.Open();
+        using var conn = db.App();   // Db.App() açık bağlantı verir
         using var tx = conn.BeginTransaction();
         var id = conn.ExecuteScalar<int>("""
             INSERT INTO SiparisTalepleri (Tur, Depo, Aciklama, OlusturanId) VALUES (@Tur, @Depo, @not, @kid);
