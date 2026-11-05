@@ -112,6 +112,12 @@ v0.6'dan yükseltirken yalnız `sql/01_butcem_app.sql` bir kez daha çalıştır
 bekleyen işlemleri için iki tablo ekler); Mikro tarafında yeni yetki gerekmez.
 v0.7'den v0.8'e yükseltirken SQL çalıştırılmaz; yalnız `ButcemApi` klasörü değiştirilir (kendi `appsettings.json`
 dosyanızı koruyun). Karlılık analizini görecek merkez kullanıcılarına Yönetim'den *Karlılık analizi* yetkisi verin.
+v0.8'den v0.9'a yükseltirken de SQL çalıştırılmaz; yalnız `ButcemApi` klasörü değiştirilir (kendi `appsettings.json`
+dosyanızı koruyun). v0.9 ile gelenler: doğrudan alış faturası ve alış faturaları yönetimi (*Fatura ve irsaliye*),
+*Kasa ve ödemeler* (kasa tahsilat / ödeme fişi, kasadan bankaya yatırma, havale ile tediye makbuzu, kasa hareket föyü),
+*Personel föyü* ve Mikro'daki listeyle aynı *Mikro hızlı erişim* sayfası. Kasa ekranları için Yönetim'den *Kasa*,
+tediye için *Tediye* yetkisi verin; personel föyü *Cari ekstre* yetkisiyle görünür. Canlıda her evrak türünden ilk
+kaydı girdikten sonra Mikro'da açıp kontrol edin.
 
 Sevk maliyeti ürünün son alış fiyatıdır (iskontolar düşülmüş). Mikro bazı sevklerde farklı bir maliyet
 önerebiliyor; bu yalnız maliyet raporunu etkiler, stok miktarını ve cariyi etkilemez.
