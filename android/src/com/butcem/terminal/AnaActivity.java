@@ -82,7 +82,8 @@ public class AnaActivity extends Activity implements Kuyruk.Dinleyici {
         super.onCreate(b);
         api = new Api(this);
         yerel = Yerel.al(this);
-        setTitle("Bütçem · " + api.adSoyad());
+        setTitle("fiyat".equals(getIntent().getStringExtra("mod")) ? "Fiyat sorgu" : "Etiket");
+        if (getActionBar() != null) getActionBar().setDisplayHomeAsUpEnabled(true);
 
         LinearLayout l = Ui.dikey(this);
         int p = Ui.dp(this, 14);
@@ -197,7 +198,7 @@ public class AnaActivity extends Activity implements Kuyruk.Dinleyici {
 
     /** Etiket yetkisi yoksa terminal yalnız fiyat/stok sorgular; sevk menüsü sevk yetkisine bağlı. */
     private void yetkileriUygula() {
-        boolean etiket = api.yetkili("etiket");
+        boolean etiket = api.yetkili("etiket") && !"fiyat".equals(getIntent().getStringExtra("mod"));
         etiketBolumu.setVisibility(etiket ? View.VISIBLE : View.GONE);
         if (etiket && yaziciSecim.getAdapter() == null) { yazicilariYukle(); sablonlariYukle(); }
         invalidateOptionsMenu();
@@ -230,12 +231,10 @@ public class AnaActivity extends Activity implements Kuyruk.Dinleyici {
     }
 
     @Override public boolean onCreateOptionsMenu(Menu m) {
-        if (api.yetkili("etiket")) {
+        if (api.yetkili("etiket") && !"fiyat".equals(getIntent().getStringExtra("mod"))) {
             m.add(0, 1, 0, "Bugün fiyatı değişenleri ekle");
             m.add(0, 2, 0, "Yazıcıları yenile");
         }
-        if (api.yetkili("sevk")) m.add(0, 4, 0, "Depolar arası sevk");
-        if (api.yetkili("sayim")) m.add(0, 5, 0, "Sayım");
         m.add(0, 6, 0, "Bekleyen işlemler");
         m.add(0, 7, 0, "Ürün listesini güncelle");
         m.add(0, 3, 0, "Çıkış");
@@ -243,6 +242,7 @@ public class AnaActivity extends Activity implements Kuyruk.Dinleyici {
     }
 
     @Override public boolean onOptionsItemSelected(MenuItem i) {
+        if (i.getItemId() == android.R.id.home) { finish(); return true; }
         if (i.getItemId() == 1) degisenleriEkle();
         else if (i.getItemId() == 2) { yazicilariYukle(); sablonlariYukle(); }
         else if (i.getItemId() == 6) Kuyruk.goster(this);

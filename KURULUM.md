@@ -6,7 +6,7 @@ Bu paket üç parçadan oluşur:
 |---|---|---|
 | **ButcemApi** (API + web paneli) | Mikro'nun çalıştığı sunucu (ya da VPN'den Mikro'ya erişen bir Windows makine) | Satış raporu, günün cirosu, cari ekstre, çek raporu, etiket kuyruğu, kullanıcılar |
 | **ButcemYazdirma** (yazdırma programı) | Her mağazada, etiket ve A4 yazıcıların USB ile bağlı olduğu bilgisayar | Sunucudaki etiket işlerini alır ve USB yazıcıya basar |
-| **ButcemTerminal.apk** | iData T1 Pro el terminalleri | Barkod okut, fiyat ve stok gör, raf / manav / A4 etiket bas |
+| **ButcemTerminal.apk** | iData T1 Pro el terminalleri | Kutucuklu menü: alış / satış evrakı, sevk, fiyat sorgu, etiket, sayım |
 
 Mikro'ya **yalnızca okuma** yetkisiyle bağlanılır. API, Mikro ve Orion veritabanlarına hiçbir şey yazmaz; kendi
 verisini (kullanıcılar, yazıcılar, etiket kuyruğu, işlem kaydı) ayrı bir `ButcemApp` veritabanında tutar.
@@ -87,6 +87,10 @@ Ne yazılır (Mikro'nun kendi evraklarıyla alan alan karşılaştırıldı):
 | Çek girişi | Müşteri çeki giriş bordrosu (4), ÇEK KASASI'nda portföy | CARI_HESAP_HAREKETLERI, ODEME_EMIRLERI |
 | Çek çıkışı | Çek çıkış bordrosu (67): müşteri çeki ciro, ya da kendi çekimiz | CARI_HESAP_HAREKETLERI, ODEME_EMIRLERI |
 | Alış irsaliyesi | Alış irsaliyesi (13) | STOK_HAREKETLERI |
+| Alış faturası (doğrudan, Mikro 062205) | Giriş faturası (3) + alış faturası (0), aynı sıra no; aynı tedarikçide aynı fatura no reddedilir | STOK_HAREKETLERI, CARI_HESAP_HAREKETLERI |
+| Kasa tahsilat / ödeme fişi (Mikro 051100 / 051200) | Evrak tipi 2 / 65; satır başına bir cari satırı, karşı hesap cari, kasa ya da masraf | CARI_HESAP_HAREKETLERI |
+| Kasadan bankaya yatırma (Mikro 072520) | Evrak tipi 8; banka borç, kasa çıkış | CARI_HESAP_HAREKETLERI |
+| Tediye makbuzu, havale (Mikro 042210) | Evrak tipi 64, cinsi 20; firma havale emri (FH-…) | CARI_HESAP_HAREKETLERI, ODEME_EMIRLERI |
 | Bekleyen irsaliyeler | İrsaliyeden alış faturası (0) | CARI_HESAP_HAREKETLERI (+ irsaliyeye bağlantı) |
 | Satış faturası | Satış faturası (4 / 63) | STOK_HAREKETLERI, CARI_HESAP_HAREKETLERI, E_FATURA_ISLEMLERI |
 | Fiyat değişikliği | Fiyat değişiklik fişi, 1 numaralı satış fiyatı, tüm depolar | STOK_FIYAT_DEGISIKLIKLERI, STOK_SATIS_FIYAT_LISTELERI (+ STOKLAR değişti zamanı) |
@@ -108,6 +112,29 @@ v0.6'dan yükseltirken yalnız `sql/01_butcem_app.sql` bir kez daha çalıştır
 bekleyen işlemleri için iki tablo ekler); Mikro tarafında yeni yetki gerekmez.
 v0.7'den v0.8'e yükseltirken SQL çalıştırılmaz; yalnız `ButcemApi` klasörü değiştirilir (kendi `appsettings.json`
 dosyanızı koruyun). Karlılık analizini görecek merkez kullanıcılarına Yönetim'den *Karlılık analizi* yetkisi verin.
+v0.8'den v0.9'a yükseltirken de SQL çalıştırılmaz; yalnız `ButcemApi` klasörü değiştirilir (kendi `appsettings.json`
+dosyanızı koruyun). v0.9 ile gelenler: doğrudan alış faturası ve alış faturaları yönetimi (*Fatura ve irsaliye*),
+*Kasa ve ödemeler* (kasa tahsilat / ödeme fişi, kasadan bankaya yatırma, havale ile tediye makbuzu, kasa hareket föyü),
+*Personel föyü* ve Mikro'daki listeyle aynı *Mikro hızlı erişim* sayfası. Kasa ekranları için Yönetim'den *Kasa*,
+tediye için *Tediye* yetkisi verin; personel föyü *Cari ekstre* yetkisiyle görünür. Canlıda her evrak türünden ilk
+kaydı girdikten sonra Mikro'da açıp kontrol edin.
+v0.9.1 (yalnız `ButcemApi` değişir, SQL yok): el terminali 0.6.0 ile birlikte gelir. Fatura ve irsaliye kayıtları
+terminalden tekrar gönderilse de Mikro'ya bir kez yazılır.
+v0.10 (el terminali 0.7.0): **onaylı sipariş**. `sql/01_butcem_app.sql` bir kez daha çalıştırılır (sipariş talebi için
+iki tablo ekler). Mağaza personeline Yönetim'den *Sipariş talebi*, patrona *Sipariş talebi onayı* yetkisi verin.
+Terminalde **Siparişler** kutusu: *Planlı sipariş* (satışa göre öneri listesi gelir, miktarlar düzeltilir; her ürün
+son geldiği tedarikçiye / depoya), *Plansız sipariş* (tedarikçi ya da depo seçilir, ürünler okutulur) ve *Verilen
+siparişler* (durumu: onay bekliyor / onaylandı / reddedildi). Talepler Mikro'ya hemen yazılmaz; panelde **Sipariş
+onayı** sayfasında patron miktarları artırıp azaltır (0: çıkar), ürün ekler, kaynağı bilinmeyen ürüne tedarikçi seçer ve
+**Onayla ve Mikro'ya aktar** der. Her tedarikçi ve depo için ayrı Mikro siparişi oluşur (belge no `TALEP-<no>`); e-posta /
+WhatsApp gönderimi Sipariş sayfasındaki "Verilen siparişler" sekmesinden yapılır. Panelin Sipariş sayfasındaki
+doğrudan kayıt (*Sipariş* yetkisi) aynen çalışır.
+v0.11 (el terminali 0.8.0, SQL yok): **evrak fotoğrafları**. Terminalde alış faturası, toptan alış irsaliyesi, satış
+faturası ve depolar arası sevk ekranlarında **📷 Fotoğraf ekle** vardır. Fotoğraf evrakla birlikte gönderilir (bağlantı
+yoksa cihazda bekler), Mikro'ya aktarılmaz ve veritabanına yazılmaz: sunucuda `ButcemApi` klasörünün yanındaki
+`ButcemFotograflari` klasörüne `tür\seri_sıra\` altında JPEG olarak kaydedilir (yaklaşık 200-400 KB). Başka bir
+klasör / disk için `appsettings.json` içinde `"Fotograflar": { "Klasor": "D:\\ButcemFotograflari" }` yazın. Panelde
+**Evrak fotoğrafları** sayfasından tür, tarih ve evrak sıra no ile bakılır. Bu klasörü yedeklemeye ekleyin.
 
 Sevk maliyeti ürünün son alış fiyatıdır (iskontolar düşülmüş). Mikro bazı sevklerde farklı bir maliyet
 önerebiliyor; bu yalnız maliyet raporunu etkiler, stok miktarını ve cariyi etkilemez.
@@ -271,17 +298,32 @@ olarak doğru çıkar.
 
 1. `ButcemTerminal.apk` dosyasını terminale kopyalayın (USB ya da paylaşım), açın. "Bilinmeyen kaynaklardan
    yüklemeye izin ver" sorulursa izin verin.
-2. Açılışta **sunucu adresi** (`http://SUNUCU-IP:5080`), kullanıcı adı ve şifre girilir. Her terminal için
-   panelden **Mağaza personeli** tipinde ayrı kullanıcı açın; kullanıcı mağazasına bağlıdır. Terminalde
-   etiket bölümü **Etiket basma**, sevk menüsü **Depolar arası sevk** yetkisi varsa görünür.
+2. İlk açılışta **⚙ Ayarlar**'a girilir: **sunucu adresi** (`http://SUNUCU-IP:5080`), kullanıcı adı, şifre ve
+   isteğe bağlı **ayarlar şifresi** (rakam; verilirse Ayarlar her açılışta bunu sorar, personel bilgileri
+   değiştiremez). **Bağlantıyı dene** ile kontrol edip **Kaydet** deyin. Bundan sonra personel yalnız **Giriş**'e
+   basar. Her terminal için panelden **Mağaza personeli** tipinde ayrı kullanıcı açın; kullanıcı mağazasına bağlıdır.
 3. Okuyucu ayarı (iData **ScanWedge / Tarayıcı Ayarları**), ikisinden biri:
    - **Çıkış modu: Yayın (Broadcast)**, eylem `android.intent.action.SCANRESULT`, ek alan `value`
      (iData'nın varsayılanı), ya da
    - **Klavye (Keyboard) modu** ve "sonuna Enter ekle" açık.
-4. Kullanım: barkod okutulur → ürün adı, satış fiyatı, fiyat değişim tarihi, mağazaların stokları görünür.
-   **Listeye ekle** (ya da **Adet…**) ile etiket listesi oluşur; etiket tasarımı (panelde tasarlananlar) ve mağaza
-   yazıcısı seçilip **Bas** denir. Sağ üst menüde **Bugün fiyatı değişenleri ekle** ve **Depolar arası sevk** vardır.
-5. Sevk: menüden **Depolar arası sevk** açılır, çıkış deposu terminalin mağazasıdır. Gidecek depo seçilir,
+4. Ana menü kutulardan oluşur (0.6.0): **Alış**, **Satış**, **Depolar arası sevk**, **Fiyat sorgu**, **Etiket**,
+   **Sayım**, **Bekleyen işlemler** (sayı rozetiyle), **Gönder** ve **Ayarlar**. Kullanıcının yetkisi olmayan kutu
+   görünmez (Alış: *Alış faturası*, Satış: *Satış faturası*, Etiket: *Etiket basma*, Sevk: *Depolar arası sevk*,
+   Sayım: *Sayım yapma*). **Gönder**, cihazda bekleyen işlemleri hemen merkeze yollar.
+   - **Alış** içinde: *Alış faturası*, *Toptan alış irsaliyesi*, *Bekleyen irsaliye → fatura*.
+   - **Satış** içinde: *Satış faturası*; *Toptan satış irsaliyesi* Mikro'daki örnek evrakla doğrulanınca açılacak.
+   - **Siparişler** içinde (0.7.0; yetki *Sipariş talebi*): *Planlı sipariş*, *Plansız sipariş*, *Verilen siparişler*.
+     Sipariş patron onayından sonra Mikro'ya aktarılır (yükseltme notlarındaki v0.10 paragrafı).
+   - Evrak ekranı: üstte cari (dokunup ünvanla aranır), depo (mağaza kullanıcısında kendi deposu) ve fatura /
+     irsaliye no; altta okutulan ürünler (kod, ad, birim, miktar, fiyat). Her okutma 1 ekler; satıra dokunarak
+     miktar ve fiyat değişir, satır silinir. Alışta fiyat son alış fiyatıdır (KDV hariç), satışta satış listesi
+     fiyatıdır (KDV dahil). Bağlantı yoksa evrak cihazda bekler, gelince Mikro'ya **bir kez** yazılır
+     (cari seçimi için bağlantı gerekir).
+   - Yeni evrak türü eklemek için `AltMenuActivity.java` içindeki listeye bir satır eklemek yeterlidir.
+   - **Fiyat sorgu:** barkod okutulur → ürün adı, satış fiyatı, fiyat değişim tarihi, mağazaların stokları.
+   - **Etiket:** **Listeye ekle** (ya da **Adet…**) ile etiket listesi oluşur; tasarım ve mağaza yazıcısı seçilip
+     **Bas** denir. Sağ üst menüde **Bugün fiyatı değişenleri ekle** vardır.
+5. Sevk: **Depolar arası sevk** kutusu, çıkış deposu terminalin mağazasıdır. Gidecek depo seçilir,
    ürünler okutulur (her okutma 1 ekler, dokunarak miktar değişir), **Sevki kaydet** denir.
 6. Sayım: menüden **Sayım** (yetki: *Sayım yapma*). İlk açılışta ürün listesi cihaza iner (bağlantı gerekir).
    Ayrıntı: bölüm 2d.
@@ -302,6 +344,8 @@ olarak doğru çıkar.
    - Merkez kabul etmezse (ör. depo kilitli) işlem "Kabul edilmedi" sebebiyle listede kalır; kaydı panelden
      ya da terminalden yeniden girin. Oturum süresi dolarsa işlemler cihazda kalır, tekrar giriş yapınca gider.
    - 0.5.0 eski APK'nın üzerine kurulur; ayarlar ve gönderilmemiş sayım okutmaları silinmez.
+   - 0.6.0 da eskisinin üzerine kurulur. Açık oturum varsa doğrudan menü gelir; çıkış yapılınca giriş bilgilerini
+     bir kez Ayarlar'a kaydedin. Terminal evrakları için API'nin de v0.9.1 olması gerekir.
 
 APK'yı güncellemek için aynı imza anahtarı (`butcem.keystore`, şifresi `butcem123`) gerekir; bu dosyayı saklayın.
 Kaybolursa yeni sürüm kurmadan önce eskisini kaldırmak gerekir.

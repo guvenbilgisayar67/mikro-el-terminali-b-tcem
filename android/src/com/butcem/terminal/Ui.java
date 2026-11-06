@@ -81,8 +81,53 @@ final class Ui {
     }
 
     static LinearLayout.LayoutParams agirlik(Context c, float w, int solBosluk) {
-        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, w);
+        // Ağırlık 0: kendi genişliği (0 genişlik + 0 ağırlık görünmez olurdu).
+        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(w == 0 ? LinearLayout.LayoutParams.WRAP_CONTENT : 0,
+                LinearLayout.LayoutParams.WRAP_CONTENT, w);
         p.leftMargin = dp(c, solBosluk);
         return p;
+    }
+
+    /** Beyaz, ince çerçeveli kart zemini. */
+    static GradientDrawable kart(Context c) {
+        GradientDrawable g = new GradientDrawable();
+        g.setColor(Color.WHITE);
+        g.setCornerRadius(dp(c, 14));
+        g.setStroke(dp(c, 1), Color.rgb(221, 227, 234));
+        return g;
+    }
+
+    /** Menü kutusu: üstte renkli simge, altta ad; sağ üstte isteğe bağlı sayı rozeti. */
+    static LinearLayout karo(Context c, String simge, int renk, String ad, String rozet) {
+        LinearLayout k = dikey(c);
+        k.setGravity(Gravity.CENTER);
+        k.setBackground(kart(c));
+        int p = dp(c, 8);
+        k.setPadding(p, p, p, p);
+        k.setClickable(true);
+        TextView s = yazi(c, simge, 24, false);
+        s.setGravity(Gravity.CENTER);
+        GradientDrawable g = new GradientDrawable();
+        g.setColor(renk);
+        g.setCornerRadius(dp(c, 12));
+        s.setBackground(g);
+        LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(dp(c, 48), dp(c, 48));
+        k.addView(s, sp);
+        TextView t = yazi(c, ad, 14, true);
+        t.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        tp.topMargin = dp(c, 8);
+        k.addView(t, tp);
+        if (rozet != null && rozet.length() > 0) {
+            TextView r = yazi(c, rozet, 12, true);
+            r.setTextColor(Color.WHITE);
+            GradientDrawable rg = new GradientDrawable();
+            rg.setColor(HATA);
+            rg.setCornerRadius(dp(c, 10));
+            r.setBackground(rg);
+            r.setPadding(dp(c, 7), 0, dp(c, 7), 0);
+            k.addView(r, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        }
+        return k;
     }
 }

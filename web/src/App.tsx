@@ -6,29 +6,39 @@ import Cek from "./sayfalar/Cek";
 import CekIslem from "./sayfalar/CekIslem";
 import Ciro from "./sayfalar/Ciro";
 import Etiket from "./sayfalar/Etiket";
+import EvrakFoto from "./sayfalar/EvrakFoto";
 import EtiketTasarim from "./sayfalar/EtiketTasarim";
 import Fatura from "./sayfalar/Fatura";
 import Fiyat from "./sayfalar/Fiyat";
 import Karlilik from "./sayfalar/Karlilik";
+import PersonelFoy from "./sayfalar/PersonelFoy";
+import Kasa from "./sayfalar/Kasa";
 import Giris from "./sayfalar/Giris";
+import HizliErisim from "./sayfalar/HizliErisim";
 import Satis from "./sayfalar/Satis";
 import Sayim from "./sayfalar/Sayim";
 import Sevk from "./sayfalar/Sevk";
 import Siparis from "./sayfalar/Siparis";
+import SiparisOnay from "./sayfalar/SiparisOnay";
 import Yonetim from "./sayfalar/Yonetim";
 
-type Sayfa = "ciro" | "satis" | "karlilik" | "cari" | "cek" | "cekislem" | "fatura" | "sevk" | "siparis" | "sayim" | "fiyat" | "etiket" | "etikettasarim" | "yonetim";
+type Sayfa = "hizli" | "ciro" | "satis" | "karlilik" | "cari" | "personel" | "cek" | "cekislem" | "fatura" | "kasa" | "sevk" | "foto" | "siparis" | "siparisonay" | "sayim" | "fiyat" | "etiket" | "etikettasarim" | "yonetim";
 // Her sayfa, listelenen yetkilerden birine sahip kullanıcıya görünür (admin hepsini görür). Menüde gruba göre sıralanır.
 const SAYFALAR: { id: Sayfa; ad: string; yetki: string[]; grup: string; ikon: IkonAdi }[] = [
   { id: "ciro", ad: "Günün cirosu", yetki: ["ciro"], grup: "Raporlar", ikon: "ciro" },
   { id: "satis", ad: "Satış raporu", yetki: ["satis_raporu"], grup: "Raporlar", ikon: "rapor" },
   { id: "karlilik", ad: "Karlılık analizi", yetki: ["karlilik"], grup: "Raporlar", ikon: "kar" },
   { id: "cari", ad: "Cari ekstre", yetki: ["cari_ekstre"], grup: "Raporlar", ikon: "cari" },
+  { id: "personel", ad: "Personel föyü", yetki: ["cari_ekstre"], grup: "Raporlar", ikon: "cari" },
   { id: "cek", ad: "Çek raporu", yetki: ["cek_raporu"], grup: "Raporlar", ikon: "cek" },
+  { id: "hizli", ad: "Mikro hızlı erişim", yetki: ["alis_fatura", "cari_ekstre", "cek_cikis", "fiyat_degisikligi", "kasa", "tediye"], grup: "Evrak", ikon: "fatura" },
   { id: "cekislem", ad: "Çek giriş / çıkış", yetki: ["cek_giris", "cek_cikis"], grup: "Evrak", ikon: "cek" },
   { id: "fatura", ad: "Fatura ve irsaliye", yetki: ["alis_fatura", "satis_fatura"], grup: "Evrak", ikon: "fatura" },
+  { id: "kasa", ad: "Kasa ve ödemeler", yetki: ["kasa", "tediye"], grup: "Evrak", ikon: "nakit" },
   { id: "sevk", ad: "Depolar arası sevk", yetki: ["sevk"], grup: "Evrak", ikon: "sevk" },
+  { id: "foto", ad: "Evrak fotoğrafları", yetki: ["alis_fatura", "satis_fatura", "sevk"], grup: "Evrak", ikon: "fatura" },
   { id: "siparis", ad: "Sipariş", yetki: ["siparis"], grup: "Evrak", ikon: "siparis" },
+  { id: "siparisonay", ad: "Sipariş onayı", yetki: ["siparis_onay", "siparis_talep"], grup: "Evrak", ikon: "siparis" },
   { id: "sayim", ad: "Sayım", yetki: ["sayim", "sayim_onay"], grup: "Evrak", ikon: "sayim" },
   { id: "fiyat", ad: "Fiyat değişikliği", yetki: ["fiyat_degisikligi"], grup: "Stok ve etiket", ikon: "fiyat" },
   { id: "etiket", ad: "Etiket bas", yetki: ["etiket"], grup: "Stok ve etiket", ikon: "etiket" },
@@ -42,7 +52,10 @@ const basHarfler = (ad: string) => ad.split(/\s+/).filter(Boolean).slice(0, 2).m
 export default function App() {
   const [oturum, setOturum] = useState<Oturum | null>(oturumOku());
   const izinli = SAYFALAR.filter((s) => yetkili(oturum, ...s.yetki));
-  const [sayfa, setSayfa] = useState<Sayfa>(() => (location.hash.slice(1) as Sayfa) || "ciro");
+  // Adres: #sayfa ya da #sayfa/sekme (ör. #fatura/alis). Sekme, sayfanın ilk açılacak sekmesidir.
+  const adresOku = () => location.hash.slice(1).split("/") as [Sayfa, string?];
+  const [sayfa, setSayfa] = useState<Sayfa>(() => adresOku()[0] || "ciro");
+  const [sekme, setSekme] = useState<string | undefined>(() => adresOku()[1]);
 
   useEffect(() => { oturumDustugunde(() => { oturumYaz(null); setOturum(null); }); }, []);
   // Yönetici yetkileri değiştirdiyse menü yeniden giriş gerekmeden güncellensin.
@@ -56,10 +69,10 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [oturum?.token]);
   const [menuAcik, setMenuAcik] = useState(false);
-  useEffect(() => { location.hash = sayfa; setMenuAcik(false); }, [sayfa]);
+  useEffect(() => { if (adresOku()[0] !== sayfa) location.hash = sayfa; setMenuAcik(false); }, [sayfa]); // eslint-disable-line react-hooks/exhaustive-deps
   // Ana sayfadaki kısayollar (ör. "Karlılık analizi →") başka sayfaya geçmek için adresi değiştirir.
   useEffect(() => {
-    const f = () => setSayfa((location.hash.slice(1) as Sayfa) || "ciro");
+    const f = () => { const [s, t] = adresOku(); setSayfa(s || "ciro"); setSekme(t); };
     window.addEventListener("hashchange", f);
     return () => window.removeEventListener("hashchange", f);
   }, []);
@@ -78,7 +91,7 @@ export default function App() {
         <div className="menu">
           {izinli.map((s, i) => [
             s.grup !== izinli[i - 1]?.grup && <div key={"g" + s.grup} className={"grup" + (s.grup ? "" : " bos")}>{s.grup}</div>,
-            <button key={s.id} className={s.id === aktif?.id ? "aktif" : ""} onClick={() => setSayfa(s.id)}>
+            <button key={s.id} className={s.id === aktif?.id ? "aktif" : ""} onClick={() => { setSayfa(s.id); setSekme(undefined); }}>
               <Ikon ad={s.ikon} />{s.ad}
             </button>,
           ])}
@@ -91,15 +104,20 @@ export default function App() {
       </nav>
       <main style={{ ["--grup" as string]: aktif?.grup ? `"${aktif.grup}"` : `""` }}>
         {!aktif && <p className="not">Size henüz bir ekran yetkisi verilmemiş. Yöneticinize başvurun.</p>}
+        {aktif?.id === "hizli" && <HizliErisim oturum={oturum} />}
         {aktif?.id === "ciro" && <Ciro oturum={oturum} />}
         {aktif?.id === "satis" && <Satis depoKilitli={depoKilidi != null} />}
         {aktif?.id === "karlilik" && <Karlilik depoKilitli={depoKilidi != null} />}
         {aktif?.id === "cari" && <Cari />}
+        {aktif?.id === "personel" && <PersonelFoy />}
         {aktif?.id === "cek" && <Cek />}
         {aktif?.id === "cekislem" && <CekIslem oturum={oturum} />}
-        {aktif?.id === "fatura" && <Fatura depoNo={depoKilidi} oturum={oturum} />}
+        {aktif?.id === "fatura" && <Fatura depoNo={depoKilidi} oturum={oturum} ilkSekme={sekme} />}
+        {aktif?.id === "kasa" && <Kasa oturum={oturum} ilkSekme={sekme} />}
         {aktif?.id === "sevk" && <Sevk depoNo={depoKilidi} />}
+        {aktif?.id === "foto" && <EvrakFoto />}
         {aktif?.id === "siparis" && <Siparis depoNo={depoKilidi} />}
+        {aktif?.id === "siparisonay" && <SiparisOnay onayYetkisi={yetkili(oturum, "siparis_onay")} />}
         {aktif?.id === "sayim" && <Sayim oturum={oturum} depoNo={depoKilidi} />}
         {aktif?.id === "fiyat" && <Fiyat />}
         {aktif?.id === "etiket" && <Etiket />}

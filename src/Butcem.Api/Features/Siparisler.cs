@@ -203,8 +203,8 @@ public static class Siparisler
         });
     }
 
-    private static int Gecmis(int? g) => Math.Clamp(g ?? 28, 7, 180);
-    private static int Gun(int? g) => Math.Clamp(g ?? 7, 1, 60);
+    internal static int Gecmis(int? g) => Math.Clamp(g ?? 28, 7, 180);
+    internal static int Gun(int? g) => Math.Clamp(g ?? 7, 1, 60);
 
     /// <summary>Açık sipariş sayılırken bakılan süre: daha eski, kapatılmamış siparişler genelde unutulmuştur.</summary>
     private const int AcikSiparisGun = 30;
@@ -336,7 +336,7 @@ public static class Siparisler
         return conn.Query<(string Kod, string Ad)>(sql, new { kodlar = liste }).ToDictionary(x => x.Kod, x => x.Ad);
     }
 
-    private static void Dogrula(Istek istek, ClaimsPrincipal user)
+    internal static void Dogrula(Istek istek, ClaimsPrincipal user)
     {
         user.DepoYetkisi(istek.Depo);
         if (istek.KaynakTur is not (Tedarikci or Depo)) throw new IslemHatasi("Sipariş kaynağı tedarikçi ya da depo olmalı.");

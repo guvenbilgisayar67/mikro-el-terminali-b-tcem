@@ -63,6 +63,13 @@ app.Use(async (ctx, next) =>
         ctx.Response.StatusCode = StatusCodes.Status400BadRequest;
         await ctx.Response.WriteAsJsonAsync(new { hata = ex.Message });
     }
+    // Yükseltmede SQL betiği çalıştırılmadıysa yeni tablolar yoktur: genel hata yerine ne yapılacağını söyle.
+    catch (Microsoft.Data.SqlClient.SqlException ex) when (ex.Number == 208 && !ctx.Response.HasStarted)
+    {
+        app.Logger.LogError(ex, "Eksik tablo");
+        ctx.Response.StatusCode = StatusCodes.Status500InternalServerError;
+        await ctx.Response.WriteAsJsonAsync(new { hata = $"Veritabanında tablo eksik ({ex.Message}). Sunucuda sql/01_butcem_app.sql dosyasını bir kez çalıştırın." });
+    }
 });
 app.UseSwagger();
 app.UseSwaggerUI();
@@ -101,9 +108,13 @@ EtiketBaskisi.Map(app);
 EtiketTasarimlari.Map(app);
 DepoSevk.Map(app);
 CekIslemleri.Map(app);
+KasaIslemleri.Map(app);
+PersonelFoyu.Map(app);
 Faturalar.Map(app);
 FiyatDegisikligi.Map(app);
 Siparisler.Map(app);
+SiparisTalepleri.Map(app);
+Fotograflar.Map(app);
 Sayim.Map(app);
 
 app.MapFallbackToFile("index.html");

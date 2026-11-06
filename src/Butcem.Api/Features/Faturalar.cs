@@ -6,7 +6,8 @@ using Dapper;
 namespace Butcem.Api.Features;
 
 /// <summary>
-/// Alış irsaliyesi, irsaliyeden alış faturası ve satış faturası.
+/// Alış irsaliyesi, irsaliyeden alış faturası ve satış faturası. Doğrudan alış faturası ve alış faturaları
+/// listesi AlisFaturalari.cs'de.
 ///
 /// Firmanın alış akışı (örnek: SOLAK 3973, belge 495623241): mal gelince alış irsaliyesi girilir
 /// (STOK_HAREKETLERI, evrak tipi 13); fatura gelince irsaliye faturalaştırılır: tek bir
@@ -17,7 +18,7 @@ namespace Butcem.Api.Features;
 /// aynı sıra numarasıyla yazılır; satırların sth_fat_uid'i cari satırını gösterir. İstenirse Mikro'nun
 /// açtığı E_FATURA_ISLEMLERI kaydı da açılır, fatura Mikro'nun e-fatura/e-arşiv ekranından gönderilir.
 /// </summary>
-public static class Faturalar
+public static partial class Faturalar
 {
     /// <param name="KdvDahil">true ise BirimFiyat KDV dahildir; satırın KDV oranıyla hariç fiyata çevrilir.</param>
     /// <summary>Iskontolar: en fazla 5 yüzde, Mikro'daki gibi zincirleme (her biri bir öncekinden kalan tutara uygulanır).
@@ -57,13 +58,17 @@ public static class Faturalar
     {
         var g = app.MapGroup("/api/fatura").RequireYetki(Yetkiler.AlisFatura, Yetkiler.SatisFatura).WithTags("Fatura");
 
-        g.MapPost("/alis-irsaliyesi", (IrsaliyeIstek istek, ClaimsPrincipal user, MikroYazici yazici, IConfiguration config, IslemLogu log) =>
+        g.MapPost("/alis-irsaliyesi", (IrsaliyeIstek istek, HttpRequest req, Db db, ClaimsPrincipal user, MikroYazici yazici, IConfiguration config, IslemLogu log) =>
         {
             user.DepoYetkisi(istek.DepoNo);
             SatirKontrol(istek.Satirlar, istek.Tarih);
-            var sonuc = AlisIrsaliyesi(yazici, config, istek);
-            log.Yaz(user.Id(), "alis_irsaliyesi", new { istek, sonuc });
-            return Results.Ok(sonuc);
+            // Terminal çevrimdışı kaydedip sonra gönderebilir: aynı istemci kimliğiyle ikinci kez yazılmaz.
+            return TekrarKoruma.Calistir(req, db, "alis_irsaliyesi", user.Id(), () =>
+            {
+                var sonuc = AlisIrsaliyesi(yazici, config, istek);
+                log.Yaz(user.Id(), "alis_irsaliyesi", new { istek, sonuc });
+                return sonuc;
+            });
         }).RequireYetki(Yetkiler.AlisFatura);
 
         // Faturası henüz girilmemiş alış irsaliyeleri.
@@ -102,13 +107,18 @@ public static class Faturalar
             return Results.Ok(sonuc);
         }).RequireYetki(Yetkiler.AlisFatura);
 
-        g.MapPost("/satis", (SatisIstek istek, ClaimsPrincipal user, MikroYazici yazici, IConfiguration config, IslemLogu log) =>
+        MapAlis(g);
+
+        g.MapPost("/satis", (SatisIstek istek, HttpRequest req, Db db, ClaimsPrincipal user, MikroYazici yazici, IConfiguration config, IslemLogu log) =>
         {
             user.DepoYetkisi(istek.DepoNo);
             SatirKontrol(istek.Satirlar, istek.Tarih);
-            var sonuc = Satis(yazici, config, istek);
-            log.Yaz(user.Id(), "satis_faturasi", new { istek, sonuc });
-            return Results.Ok(sonuc);
+            return TekrarKoruma.Calistir(req, db, "satis_faturasi", user.Id(), () =>
+            {
+                var sonuc = Satis(yazici, config, istek);
+                log.Yaz(user.Id(), "satis_faturasi", new { istek, sonuc });
+                return sonuc;
+            });
         }).RequireYetki(Yetkiler.SatisFatura);
     }
 

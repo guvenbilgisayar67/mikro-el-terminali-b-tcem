@@ -37,6 +37,7 @@ import java.util.Map;
  */
 public class SevkActivity extends Activity implements Kuyruk.Dinleyici {
     private Api api;
+    private FotoAlani foto;
     private Yerel yerel;
     private EditText barkod;
     private TextView durum, mesaj, ozet;
@@ -124,6 +125,8 @@ public class SevkActivity extends Activity implements Kuyruk.Dinleyici {
         kaydetDugmesi.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { onayla(); }
         });
+        foto = new FotoAlani(this);
+        l.addView(foto.gorunum(), Ui.genis(this, 10));
         l.addView(kaydetDugmesi, Ui.genis(this, 10));
 
         ScrollView sv = new ScrollView(this);
@@ -311,19 +314,23 @@ public class SevkActivity extends Activity implements Kuyruk.Dinleyici {
             kaydediliyor = true;
             listeyiGoster();
             bilgi("Kaydediliyor…");
-            Kuyruk.isle(this, "sevk", "/api/sevk", o, ozetMetni, new Api.Sonuc() {
+            final String[] evrakId = new String[1];
+            final java.util.List<java.io.File> fotolar = foto.dosyalar();
+            evrakId[0] = Kuyruk.isle(this, "sevk", "/api/sevk", o, ozetMetni, new Api.Sonuc() {
                 @Override public void tamam(String govde) {
                     kaydediliyor = false;
                     try {
                         JSONObject r = new JSONObject(govde);
                         kalemler.clear();
                         listeyiGoster();
+                        fotograflariGonder(evrakId[0], fotolar, ozetMetni);
                         bilgi("Kaydedildi: sevk fişi " + r.optString("seri") + " " + r.optInt("sira") + ", " + r.optInt("satirSayisi") + " satır.");
                     } catch (Exception e) { hataGoster(e.getMessage()); }
                 }
                 @Override public void hata(int d, String m) {
                     kaydediliyor = false;
                     if (Kuyruk.tekrarDenenir(d)) {
+                        fotograflariGonder(evrakId[0], fotolar, ozetMetni);
                         kalemler.clear();
                         listeyiGoster();
                         bilgi("Merkeze ulaşılamadı. Sevk cihazda kaydedildi; bağlantı gelince Mikro'ya gönderilecek. "
@@ -337,6 +344,22 @@ public class SevkActivity extends Activity implements Kuyruk.Dinleyici {
         } catch (Exception e) {
             hataGoster(e.getMessage());
         }
+    }
+
+    @Override protected void onActivityResult(int istek, int durum, Intent veri) {
+        if (!foto.sonuc(istek, durum)) super.onActivityResult(istek, durum, veri);
+    }
+
+    @Override protected void onDestroy() {
+        super.onDestroy();
+        if (isFinishing()) foto.sil();
+    }
+
+    /** Evrak merkeze ulaştı ya da cihazda sıraya girdi: fotoğrafları da sıraya koy (evraktan sonra gider). */
+    private void fotograflariGonder(String evrakId, java.util.List<java.io.File> fotolar, String ad) {
+        if (evrakId == null || fotolar.isEmpty()) return;
+        Kuyruk.fotograflariGonder(this, evrakId, "sevk", ad, fotolar);
+        foto.birak();
     }
 
     private void hataGoster(String m) { mesaj.setTextColor(Ui.HATA); mesaj.setText(m); }

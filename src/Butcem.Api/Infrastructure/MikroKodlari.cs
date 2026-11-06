@@ -17,10 +17,11 @@ public static class Mikro
     public static class CariHarTip { public const int Borc = 0, Alacak = 1; }
     public static class CariEvrakTip
     {
-        public const int AlisFaturasi = 0, TahsilatMakbuzu = 1, MusteriCekGirisBordrosu = 4,
-                         SatisFaturasi = 63, TediyeMakbuzu = 64, CekCikisBordrosu = 67;
+        public const int AlisFaturasi = 0, TahsilatMakbuzu = 1, KasaTahsilatFisi = 2, MusteriCekGirisBordrosu = 4,
+                         KasadanBankayaYatirma = 8, SatisFaturasi = 63, TediyeMakbuzu = 64, KasaOdemeFisi = 65,
+                         CekCikisBordrosu = 67;
     }
-    public static class CariCins { public const int Cari = 0, Banka = 2, Kasa = 4; }
+    public static class CariCins { public const int Cari = 0, Banka = 2, Kasa = 4, Masraf = 5; }
 
     public static class CekTip
     {
@@ -63,7 +64,11 @@ public static class Mikro
         (1, 17) => "Tahsilat (havale)",
         (1, 19) => "Tahsilat (kredi kartı)",
         (1, _) => "Tahsilat makbuzu",
+        (64, 20) => "Ödeme (havale)",
         (64, _) => "Ödeme makbuzu",
+        (2, _) => "Kasa tahsilat fişi",
+        (65, _) => "Kasa ödeme fişi",
+        (8, _) => "Kasadan bankaya yatırma",
         (4, _) => "Çek giriş bordrosu",
         (67, _) => "Çek çıkış bordrosu",
         (29, _) => "Devir",
